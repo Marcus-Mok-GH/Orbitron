@@ -1,6 +1,5 @@
-// server/index.ts
+// server/app.ts
 import express from "express";
-import { createServer as createViteServer } from "vite";
 
 // server/chat.ts
 import { randomBytes as randomBytes2 } from "node:crypto";
@@ -1094,8 +1093,8 @@ async function requireSession(req, res, next) {
   req.auth = { user, via: "session" };
   next();
 }
-function registerKeyRoutes(app2) {
-  app2.post(
+function registerKeyRoutes(app) {
+  app.post(
     "/api/auth/dashboard-key",
     requireSession,
     async (req, res) => {
@@ -1109,7 +1108,7 @@ function registerKeyRoutes(app2) {
       }
     }
   );
-  app2.get("/api/keys", requireSession, async (req, res) => {
+  app.get("/api/keys", requireSession, async (req, res) => {
     const userId = req.auth.user.id;
     const result = await query(
       `SELECT id, user_id, name, prefix, monthly_cap_cents, created_at, last_used_at, revoked_at
@@ -1130,7 +1129,7 @@ function registerKeyRoutes(app2) {
       }))
     });
   });
-  app2.post("/api/keys", requireSession, async (req, res) => {
+  app.post("/api/keys", requireSession, async (req, res) => {
     const userId = req.auth.user.id;
     const { name, monthlyCapCents } = req.body || {};
     const cleanName = typeof name === "string" ? name.trim().slice(0, 80) : "";
@@ -1167,7 +1166,7 @@ function registerKeyRoutes(app2) {
       }
     });
   });
-  app2.get(
+  app.get(
     "/api/keys/:id/usage",
     requireSession,
     async (req, res) => {
@@ -1194,7 +1193,7 @@ function registerKeyRoutes(app2) {
       }
     }
   );
-  app2.delete("/api/keys/:id", requireSession, async (req, res) => {
+  app.delete("/api/keys/:id", requireSession, async (req, res) => {
     const userId = req.auth.user.id;
     const { id } = req.params;
     const result = await query(
@@ -1799,8 +1798,8 @@ ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
     contents.push({ role: "user", parts: responseParts });
   }
 }
-function registerChatRoutes(app2) {
-  app2.post("/api/chat", requireApiKey, async (req, res) => {
+function registerChatRoutes(app) {
+  app.post("/api/chat", requireApiKey, async (req, res) => {
     const {
       modelId,
       messages,
@@ -2050,8 +2049,8 @@ function checkAccountDeleteRate(userId) {
   accountDeleteAttempts.set(userId, recent);
   return true;
 }
-function registerApiRoutes(app2) {
-  app2.get("/api/status", async (_req, res) => {
+function registerApiRoutes(app) {
+  app.get("/api/status", async (_req, res) => {
     if (statusCache && statusCache.expires > Date.now()) {
       return res.json(statusCache.data);
     }
@@ -2092,7 +2091,7 @@ function registerApiRoutes(app2) {
     statusCache = { data: payload, expires: Date.now() + STATUS_TTL_MS };
     res.json(payload);
   });
-  app2.get("/api/models", async (req, res) => {
+  app.get("/api/models", async (req, res) => {
     const providerFilter = typeof req.query.provider === "string" ? req.query.provider : null;
     const modalityFilter = typeof req.query.modality === "string" ? req.query.modality : null;
     let data = models;
@@ -2129,7 +2128,7 @@ function registerApiRoutes(app2) {
       })
     });
   });
-  app2.get("/api/models/:id", async (req, res) => {
+  app.get("/api/models/:id", async (req, res) => {
     const model = models.find((m) => m.id === req.params.id);
     if (!model) {
       return res.status(404).json({ error: { message: `Model not found: ${req.params.id}` } });
@@ -2154,7 +2153,7 @@ function registerApiRoutes(app2) {
       description: model.description
     });
   });
-  app2.get("/api/usage", requireAuth, async (req, res) => {
+  app.get("/api/usage", requireAuth, async (req, res) => {
     const windowDays = Math.max(
       1,
       Math.min(90, Number(req.query.days) || 30)
@@ -2168,7 +2167,7 @@ function registerApiRoutes(app2) {
       res.status(500).json({ error: { message: "Failed to load usage" } });
     }
   });
-  app2.get("/api/credits", requireAuth, async (req, res) => {
+  app.get("/api/credits", requireAuth, async (req, res) => {
     const userId = req.auth.user.id;
     try {
       const state = await getCreditsState(userId);
@@ -2191,7 +2190,7 @@ function registerApiRoutes(app2) {
       res.status(500).json({ error: { message: "Failed to load credits" } });
     }
   });
-  app2.post("/api/images", requireApiKey, async (req, res) => {
+  app.post("/api/images", requireApiKey, async (req, res) => {
     const {
       prompt,
       size = "1024x1024",
@@ -2304,7 +2303,7 @@ function registerApiRoutes(app2) {
       });
     }
   });
-  app2.post("/api/share", requireAuth, async (req, res) => {
+  app.post("/api/share", requireAuth, async (req, res) => {
     const userId = req.user.claims.sub;
     const body = req.body;
     const title = typeof body.title === "string" && body.title.trim() ? body.title.trim().slice(0, 200) : "Untitled chat";
@@ -2325,7 +2324,7 @@ function registerApiRoutes(app2) {
     );
     res.json({ slug, url: `/share/${slug}` });
   });
-  app2.post("/api/account/delete", requireAuth, async (req, res) => {
+  app.post("/api/account/delete", requireAuth, async (req, res) => {
     const userId = req.user.claims.sub;
     const ip = req.ip ?? "?";
     const ua = req.get("user-agent") ?? "?";
@@ -2377,7 +2376,7 @@ function registerApiRoutes(app2) {
       });
     });
   });
-  app2.get("/api/share/:slug", async (req, res) => {
+  app.get("/api/share/:slug", async (req, res) => {
     const slug = req.params.slug;
     if (!/^[A-Za-z0-9_-]{1,32}$/.test(slug)) {
       return res.status(404).json({ error: { message: "Not found" } });
@@ -2605,7 +2604,7 @@ function resolveCatalogId(modelParam) {
 function newMessageId() {
   return `msg_${randomBytes4(12).toString("base64url")}`;
 }
-function registerAnthropicCompatRoutes(app2) {
+function registerAnthropicCompatRoutes(app) {
   const handler = async (req, res) => {
     const body = req.body || {};
     if (!body.model || typeof body.model !== "string") {
@@ -3013,8 +3012,8 @@ function registerAnthropicCompatRoutes(app2) {
       }
     });
   };
-  app2.post("/api/v1/messages", requireApiKeyAnthropic, handler);
-  app2.post("/v1/messages", requireApiKeyAnthropic, handler);
+  app.post("/api/v1/messages", requireApiKeyAnthropic, handler);
+  app.post("/v1/messages", requireApiKeyAnthropic, handler);
 }
 async function dispatchToRunner(args) {
   const {
@@ -3090,7 +3089,7 @@ function resolveCatalogId2(modelParam) {
 function newCompletionId() {
   return `chatcmpl-${randomBytes5(12).toString("base64url")}`;
 }
-function registerOpenAICompatRoutes(app2) {
+function registerOpenAICompatRoutes(app) {
   const handler = async (req, res) => {
     const body = req.body || {};
     if (!body.model || typeof body.model !== "string") {
@@ -3478,9 +3477,9 @@ function registerOpenAICompatRoutes(app2) {
       }
     });
   };
-  app2.post("/api/v1/chat/completions", requireApiKey, handler);
-  app2.post("/v1/chat/completions", requireApiKey, handler);
-  app2.post("/api/chat/completions", requireApiKey, handler);
+  app.post("/api/v1/chat/completions", requireApiKey, handler);
+  app.post("/v1/chat/completions", requireApiKey, handler);
+  app.post("/api/chat/completions", requireApiKey, handler);
 }
 async function dispatchToRunner2(args) {
   const {
@@ -3535,8 +3534,8 @@ async function dispatchToRunner2(args) {
 
 // server/authRoutes.ts
 import { UAParser } from "ua-parser-js";
-function registerAuthRoutes(app2) {
-  app2.get("/api/auth/user", requireAuth, async (req, res) => {
+function registerAuthRoutes(app) {
+  app.get("/api/auth/user", requireAuth, async (req, res) => {
     try {
       const user = await authStorage.getUser(req.auth.user.id);
       res.json(user ?? req.auth.user);
@@ -3545,7 +3544,7 @@ function registerAuthRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
-  app2.get("/api/auth/preferences", requireAuth, async (req, res) => {
+  app.get("/api/auth/preferences", requireAuth, async (req, res) => {
     try {
       const preferences = await authStorage.getPreferences(req.auth.user.id);
       res.json(preferences);
@@ -3554,7 +3553,7 @@ function registerAuthRoutes(app2) {
       res.status(500).json({ message: "Failed to fetch preferences" });
     }
   });
-  app2.put("/api/auth/preferences", requireAuth, async (req, res) => {
+  app.put("/api/auth/preferences", requireAuth, async (req, res) => {
     try {
       const updates = req.body;
       if (updates.theme !== void 0 && !["light", "dark", "system"].includes(updates.theme)) {
@@ -3573,7 +3572,7 @@ function registerAuthRoutes(app2) {
       res.status(500).json({ message: "Failed to update preferences" });
     }
   });
-  app2.get("/api/auth/sessions", requireAuth, async (req, res) => {
+  app.get("/api/auth/sessions", requireAuth, async (req, res) => {
     try {
       const userId = req.auth.user.id;
       const result = await query(
@@ -3604,7 +3603,7 @@ function registerAuthRoutes(app2) {
       res.status(500).json({ message: "Failed to load sessions" });
     }
   });
-  app2.post("/api/auth/sessions/revoke-others", requireAuth, async (_req, res) => {
+  app.post("/api/auth/sessions/revoke-others", requireAuth, async (_req, res) => {
     res.status(501).json({
       message: "Revoking other sessions is managed by Neon Auth and is not available through the API yet."
     });
@@ -3620,26 +3619,18 @@ function describeUA(ua) {
   return { device: "Unknown device", browser: null, os: null };
 }
 
-// server/index.ts
-var app = express();
-app.use(express.json({ limit: "10mb" }));
-var isProduction = process.env.NODE_ENV === "production";
-var PORT = Number(process.env.PORT) || 5e3;
-async function start() {
+// server/app.ts
+async function createOrbitronApp(options = {}) {
   await ensureSchema();
+  const app = express();
+  app.use(express.json({ limit: "10mb" }));
   registerAuthRoutes(app);
   registerKeyRoutes(app);
   registerChatRoutes(app);
   registerAnthropicCompatRoutes(app);
   registerOpenAICompatRoutes(app);
   registerApiRoutes(app);
-  if (!isProduction) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true, allowedHosts: true },
-      appType: "spa"
-    });
-    app.use(vite.middlewares);
-  } else {
+  if (options.serveStatic) {
     const path = await import("node:path");
     const { fileURLToPath } = await import("node:url");
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -3648,6 +3639,22 @@ async function start() {
     app.use((_req, res) => {
       res.sendFile(path.join(distRoot, "index.html"));
     });
+  }
+  return app;
+}
+
+// server/index.ts
+var isProduction = process.env.NODE_ENV === "production";
+var PORT = Number(process.env.PORT) || 5e3;
+async function start() {
+  const app = await createOrbitronApp({ serveStatic: isProduction });
+  if (!isProduction) {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: { middlewareMode: true, allowedHosts: true },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
   }
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Orbitron listening on http://0.0.0.0:${PORT}`);
