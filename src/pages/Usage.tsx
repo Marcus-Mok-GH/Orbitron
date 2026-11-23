@@ -44,7 +44,7 @@ export default function Usage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/usage?days=${windowDays}`, { credentials: "include" })
+    authFetch(`/api/usage?days=${windowDays}`)
       .then(async (r) => {
         if (!r.ok) {
           const body = await r.json().catch(() => ({}));
