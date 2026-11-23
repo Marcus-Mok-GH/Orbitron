@@ -80,20 +80,6 @@ interface ImageModelInfo {
 
 const IMAGE_MODELS: ImageModelInfo[] = [
   {
-    id: "gpt-image-1",
-    label: "GPT Image 1",
-    provider: "OpenAI",
-    supportsSize: true,
-    blurb: "~$0.04/image · base64 PNG",
-  },
-  {
-    id: "gemini-2.5-flash-image",
-    label: "Gemini 2.5 Flash Image",
-    provider: "Google",
-    supportsSize: false,
-    blurb: "Fast · native multimodal",
-  },
-  {
     id: "sana",
     label: "Sana",
     provider: "Pollinations",

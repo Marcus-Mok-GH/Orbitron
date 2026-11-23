@@ -33,7 +33,7 @@ const openai = new OpenAI({
 
 // Pollinations serves open-weights models behind an OpenAI-compatible
 // endpoint (text.pollinations.ai/openai) authenticated with a Bearer key.
-const pollinations = new OpenAI({
+export const pollinations = new OpenAI({
   apiKey: process.env.POLLINATIONS_API_KEY ?? "unset",
   baseURL: "https://text.pollinations.ai/openai",
 });

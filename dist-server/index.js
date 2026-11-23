@@ -8,327 +8,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 
 // src/data/models.ts
-var providers = ["OpenAI", "Anthropic", "Google", "Pollinations"];
+var providers = ["Pollinations"];
 var models = [
-  // ---------- OpenAI ----------
-  {
-    id: "gpt-5.5",
-    name: "GPT-5.5",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 1.5,
-    outputPrice: 12,
-    throughput: 130,
-    latency: 280,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Latest GPT-5 release. Better at coding, using computers, and deeper research capabilities."
-  },
-  {
-    id: "gpt-5.4",
-    name: "GPT-5.4",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 1.25,
-    outputPrice: 10,
-    throughput: 110,
-    latency: 300,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Affordable model for coding and professional work. Fast latency, max 128K output tokens."
-  },
-  {
-    id: "gpt-5.2",
-    name: "GPT-5.2",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 1.25,
-    outputPrice: 10,
-    throughput: 100,
-    latency: 320,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Smartest and most trustworthy for difficult questions. Strong in programming and complex domains."
-  },
-  {
-    id: "gpt-5.3-codex",
-    name: "GPT-5.3 Codex",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 1.5,
-    outputPrice: 12,
-    throughput: 95,
-    latency: 350,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Default for code generation, review, and repo-scale reasoning. Integrated coding specialization."
-  },
-  {
-    id: "gpt-5.1",
-    name: "GPT-5.1",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 1.25,
-    outputPrice: 10,
-    throughput: 95,
-    latency: 340,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Focused on stability, efficiency, and developer feedback. Solid all-around performer."
-  },
-  {
-    id: "gpt-5",
-    name: "GPT-5",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 1.25,
-    outputPrice: 10,
-    throughput: 70,
-    latency: 380,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "The model that defined the GPT-5 generation. Strong at agentic, multimodal, and long-context work."
-  },
-  {
-    id: "gpt-5-mini",
-    name: "GPT-5 mini",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 0.25,
-    outputPrice: 2,
-    throughput: 210,
-    latency: 180,
-    modalities: ["text", "vision", "tools"],
-    description: "Fast and cheap GPT-5 variant. Production workhorse for most chat and tool-use workloads."
-  },
-  {
-    id: "gpt-5-nano",
-    name: "GPT-5 nano",
-    provider: "OpenAI",
-    contextWindow: 4e5,
-    inputPrice: 0.05,
-    outputPrice: 0.4,
-    throughput: 320,
-    latency: 110,
-    modalities: ["text", "tools"],
-    description: "Lowest-latency tier. Sub-200ms time-to-first-token for routing, classification, and edge use cases."
-  },
-  {
-    id: "gpt-4.1",
-    name: "GPT-4.1",
-    provider: "OpenAI",
-    contextWindow: 256e3,
-    inputPrice: 2,
-    outputPrice: 8,
-    throughput: 80,
-    latency: 400,
-    modalities: ["text", "vision", "tools"],
-    description: "Popular among developers, with fine-tuning support. Extended training data."
-  },
-  {
-    id: "gpt-4.1-mini",
-    name: "GPT-4.1 mini",
-    provider: "OpenAI",
-    contextWindow: 256e3,
-    inputPrice: 0.5,
-    outputPrice: 2,
-    throughput: 180,
-    latency: 200,
-    modalities: ["text", "vision", "tools"],
-    description: "Efficient mini variant of GPT-4.1 with fine-tuning support."
-  },
-  {
-    id: "o3-pro",
-    name: "o3-pro",
-    provider: "OpenAI",
-    contextWindow: 2e5,
-    inputPrice: 3,
-    outputPrice: 12,
-    throughput: 30,
-    latency: 1600,
-    modalities: ["text", "tools"],
-    description: "Pro version of o3. Thinks longer for more reliable responses. Best for critical tasks."
-  },
-  {
-    id: "o4-mini",
-    name: "o4-mini",
-    provider: "OpenAI",
-    contextWindow: 2e5,
-    inputPrice: 1.1,
-    outputPrice: 4.4,
-    throughput: 75,
-    latency: 800,
-    modalities: ["text", "tools"],
-    description: "Compact reasoning model. State-of-the-art on coding and math benchmarks at a deployable price."
-  },
-  {
-    id: "o3",
-    name: "o3",
-    provider: "OpenAI",
-    contextWindow: 2e5,
-    inputPrice: 2,
-    outputPrice: 8,
-    throughput: 35,
-    latency: 1400,
-    modalities: ["text", "tools"],
-    description: "Deep reasoning model. Slow but exceptional at multi-step proofs, planning, and code synthesis."
-  },
-  // ---------- Anthropic ----------
-  {
-    id: "claude-opus-4.7",
-    name: "Claude Opus 4.7",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 15,
-    outputPrice: 75,
-    throughput: 50,
-    latency: 420,
-    modalities: ["text", "vision", "tools"],
-    description: "Anthropic's latest and most capable model. Best for complex reasoning, agentic coding, and cross-session continuity with high-res image support."
-  },
-  {
-    id: "claude-sonnet-4.6",
-    name: "Claude Sonnet 4.6",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 3,
-    outputPrice: 15,
-    throughput: 120,
-    latency: 260,
-    modalities: ["text", "vision", "tools"],
-    description: "Latest Sonnet generation \u2014 balanced intelligence and speed. Recommended default for most use cases."
-  },
-  {
-    id: "claude-opus-4.6",
-    name: "Claude Opus 4.6",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 15,
-    outputPrice: 75,
-    throughput: 48,
-    latency: 440,
-    modalities: ["text", "vision", "tools"],
-    description: "Earlier Opus generation. Prefer Claude Opus 4.7 for new work."
-  },
-  {
-    id: "claude-opus-4.5",
-    name: "Claude Opus 4.5",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 15,
-    outputPrice: 75,
-    throughput: 45,
-    latency: 450,
-    modalities: ["text", "vision", "tools"],
-    description: "Anthropic's most powerful model. Unmatched at long-context analysis, agentic coding, and research."
-  },
-  {
-    id: "claude-sonnet-4.5",
-    name: "Claude Sonnet 4.5",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 3,
-    outputPrice: 15,
-    throughput: 110,
-    latency: 280,
-    modalities: ["text", "vision", "tools"],
-    description: "The perfect balance of intelligence and speed. Most teams' default model."
-  },
-  {
-    id: "claude-haiku-4.5",
-    name: "Claude Haiku 4.5",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 1,
-    outputPrice: 5,
-    throughput: 230,
-    latency: 160,
-    modalities: ["text", "vision", "tools"],
-    description: "Cheap, fast, smarter than it has any right to be. Great for streaming UIs and high-volume jobs."
-  },
-  {
-    id: "claude-opus-4.1",
-    name: "Claude Opus 4.1",
-    provider: "Anthropic",
-    contextWindow: 2e5,
-    inputPrice: 15,
-    outputPrice: 75,
-    throughput: 50,
-    latency: 480,
-    modalities: ["text", "vision", "tools"],
-    description: "Previous-generation flagship. Still excellent for complex agentic workflows and pinned deployments."
-  },
-  // ---------- Google ----------
-  {
-    id: "gemini-3-pro",
-    name: "Gemini 3 Pro",
-    provider: "Google",
-    contextWindow: 1e6,
-    inputPrice: 2,
-    outputPrice: 12,
-    throughput: 140,
-    latency: 320,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Google's most intelligent model. Advanced reasoning, Deep Think mode, and agentic capabilities."
-  },
-  {
-    id: "gemini-3-flash",
-    name: "Gemini 3 Flash",
-    provider: "Google",
-    contextWindow: 1e6,
-    inputPrice: 0.5,
-    outputPrice: 3,
-    throughput: 280,
-    latency: 120,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Fast, affordable, Pro-grade reasoning. 3x speed of 2.5 Pro with modulated thinking levels."
-  },
-  {
-    id: "gemini-2.5-pro",
-    name: "Gemini 2.5 Pro",
-    provider: "Google",
-    contextWindow: 1e6,
-    inputPrice: 1.25,
-    outputPrice: 10,
-    throughput: 130,
-    latency: 300,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "Advanced reasoning, coding, and multimodal understanding. 1M token context window."
-  },
-  {
-    id: "gemini-2.5-flash",
-    name: "Gemini 2.5 Flash",
-    provider: "Google",
-    contextWindow: 1e6,
-    inputPrice: 0.3,
-    outputPrice: 2.5,
-    throughput: 250,
-    latency: 150,
-    modalities: ["text", "vision", "audio", "tools"],
-    description: "1M context, fully multimodal, blazing fast. Outstanding price-to-performance for most workloads."
-  },
-  {
-    id: "gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
-    provider: "Google",
-    contextWindow: 1e6,
-    inputPrice: 0.15,
-    outputPrice: 0.6,
-    throughput: 300,
-    latency: 100,
-    modalities: ["text", "vision", "tools"],
-    description: "Ultra-low cost variant. Best for high-volume, cost-sensitive applications."
-  },
-  {
-    id: "gemini-2.0-flash-thinking",
-    name: "Gemini 2.0 Flash Thinking",
-    provider: "Google",
-    contextWindow: 1e6,
-    inputPrice: 0.4,
-    outputPrice: 3,
-    throughput: 200,
-    latency: 180,
-    modalities: ["text", "tools"],
-    description: "Fast reasoning model with chain-of-thought processing. Good balance of speed and intelligence."
-  },
-  // ---------- Pollinations ----------
-  // Served via Pollinations' OpenAI-compatible gateway (text.pollinations.ai).
-  // Prices reflect Pollinations Pollen-equivalent rates for gateway billing;
-  // the underlying GPT-OSS 20B weights are open-weights.
+  // All models below are served through the Pollinations unified AI API
+  // (text.pollinations.ai, OpenAI-compatible) using the configured
+  // POLLINATIONS_API_KEY. Verified against the live gateway: these are the
+  // models the Classic API serves for this key. Premium models not listed
+  // here return FREE_LIMIT (402) on the current tier.
   {
     id: "openai-fast",
     name: "GPT-OSS 20B",
@@ -336,10 +22,10 @@ var models = [
     contextWindow: 131072,
     inputPrice: 0.05,
     outputPrice: 0.15,
-    throughput: 95,
-    latency: 420,
+    throughput: 200,
+    latency: 180,
     modalities: ["text", "tools"],
-    description: "Open-weights 20B reasoning model served by Pollinations. Budget pick with tool calling and solid everyday quality."
+    description: "OpenAI's open-weight GPT-OSS 20B served by Pollinations. Fast, tool-capable everyday workhorse with generous free usage."
   }
 ];
 
@@ -2715,7 +2401,7 @@ function registerAnthropicCompatRoutes(app) {
       });
     }
     const catalogEntry = models.find((m) => m.id === catalogId);
-    if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap)) {
+    if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap) && !(catalogId in pollinationsMap)) {
       return res.status(400).json({
         type: "error",
         error: {
@@ -3115,6 +2801,20 @@ async function dispatchToRunner(args) {
         userToolChoice: anthropicToOpenaiToolChoice(userAnthropicToolChoice)
       } : {}
     });
+  } else if (catalogId in pollinationsMap) {
+    await runOpenAI({
+      client: pollinations,
+      model: pollinationsMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userAnthropicTools ? {
+        userTools: anthropicToOpenaiTools(userAnthropicTools),
+        userToolChoice: anthropicToOpenaiToolChoice(userAnthropicToolChoice)
+      } : {}
+    });
   } else {
     await runGemini({
       model: geminiMap[catalogId],
@@ -3198,7 +2898,7 @@ function registerOpenAICompatRoutes(app) {
       });
     }
     const catalogEntry = models.find((m) => m.id === catalogId);
-    if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap)) {
+    if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap) && !(catalogId in pollinationsMap)) {
       return res.status(400).json({
         error: {
           message: `Unsupported model: ${body.model}`,
@@ -3578,6 +3278,20 @@ async function dispatchToRunner2(args) {
       ...userOpenaiTools ? {
         userTools: openaiToAnthropicTools(userOpenaiTools),
         userToolChoice: openaiToAnthropicToolChoice(userOpenaiToolChoice)
+      } : {}
+    });
+  } else if (catalogId in pollinationsMap) {
+    await runOpenAI({
+      client: pollinations,
+      model: pollinationsMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userOpenaiTools ? {
+        userTools: userOpenaiTools,
+        userToolChoice: userOpenaiToolChoice
       } : {}
     });
   } else {

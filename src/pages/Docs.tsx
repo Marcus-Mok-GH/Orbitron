@@ -21,10 +21,10 @@ export default function Docs() {
   const curlExample = "curl " + baseUrl + "/api/chat \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"modelId\": \"claude-sonnet-4.6\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'";
 
   // Streaming Node.js
-  const streamingNode = "import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  baseURL: '" + baseUrl + "/api',\n  apiKey: process.env.ORBITRON_API_KEY,\n});\n\nconst stream = await client.chat.completions.create({\n  model: 'gpt-5.4',\n  messages: [{ role: 'user', content: 'Write a haiku about routing.' }],\n  stream: true,\n});\n\nfor await (const chunk of stream) {\n  const delta = chunk.choices[0]?.delta?.content;\n  if (delta) process.stdout.write(delta);\n}";
+  const streamingNode = "import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  baseURL: '" + baseUrl + "/api',\n  apiKey: process.env.ORBITRON_API_KEY,\n});\n\nconst stream = await client.chat.completions.create({\n  model: 'openai-fast',\n  messages: [{ role: 'user', content: 'Write a haiku about routing.' }],\n  stream: true,\n});\n\nfor await (const chunk of stream) {\n  const delta = chunk.choices[0]?.delta?.content;\n  if (delta) process.stdout.write(delta);\n}";
 
   // Streaming Python
-  const streamingPython = "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url='" + baseUrl + "/api',\n    api_key=os.environ.get('ORBITRON_API_KEY'),\n)\n\nstream = client.chat.completions.create(\n    model='gpt-5.4',\n    messages=[{'role': 'user', 'content': 'Write a haiku about routing.'}],\n    stream=True,\n)\n\nfor chunk in stream:\n    delta = chunk.choices[0].delta.content\n    if delta:\n        print(delta, end='', flush=True)";
+  const streamingPython = "import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url='" + baseUrl + "/api',\n    api_key=os.environ.get('ORBITRON_API_KEY'),\n)\n\nstream = client.chat.completions.create(\n    model='openai-fast',\n    messages=[{'role': 'user', 'content': 'Write a haiku about routing.'}],\n    stream=True,\n)\n\nfor chunk in stream:\n    delta = chunk.choices[0].delta.content\n    if delta:\n        print(delta, end='', flush=True)";
 
   // SSE Response format
   const streamingSSE = "data: {\"delta\": \"Hello\"}\ndata: {\"delta\": \" world\"}\ndata: {\"done\": true, \"latencyMs\": 150, \"totalMs\": 320, \"inputTokens\": 12, \"outputTokens\": 8, \"cost\": 0.00023}";
@@ -39,10 +39,10 @@ export default function Docs() {
   const toolsResponse = "data: {\"tool\":{\"phase\":\"start\",\"callId\":\"abc123\",\"name\":\"web_search\",\"args\":{\"query\":\"NYC weather\",\"num_results\":5}}}\ndata: {\"tool\":{\"phase\":\"end\",\"callId\":\"abc123\",\"results\":[{\"title\":\"NYC Weather\",\"url\":\"https://example.com/weather\",\"snippet\":\"Partly cloudy, 72F\"}]}}\ndata: {\"delta\":\"Based on recent search results, the weather in NYC is...\"}";
 
   // Image generation
-  const imageRequest = "{\n  'prompt': 'A serene mountain landscape at sunset',\n  'size': '1024x1024',\n  'n': 1,\n  'model': 'gpt-image-1'\n}";
+  const imageRequest = "{\n  'prompt': 'A serene mountain landscape at sunset',\n  'size': '1024x1024',\n  'n': 1,\n  'model': 'sana'\n}";
 
   // Image response
-  const imageResponse = "{\n  'model': 'gpt-image-1',\n  'latencyMs': 1250,\n  'data': [\n    {\n      'b64_json': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...',\n      'revised_prompt': 'A serene mountain landscape at sunset, rendered in...'\n    }\n  ]\n}";
+  const imageResponse = "{\n  'model': 'sana',\n  'latencyMs': 1250,\n  'data': [\n    {\n      'b64_json': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB...',\n      'revised_prompt': 'A serene mountain landscape at sunset, rendered in...'\n    }\n  ]\n}";
 
   // Error response
   const errorResponse = "{\n  'error': {\n    'message': 'Model not found: invalid-model-id',\n    'type': 'invalid_request'\n  }\n}";
@@ -239,7 +239,7 @@ export default function Docs() {
                   <span className="text-red-400 text-xs">Required</span>
                 </div>
                 <div className="text-muted-foreground text-xs mb-2">ID of the model to use. See the model catalog at GET /api/models for valid IDs.</div>
-                <div className="text-xs text-muted-foreground">Example: <span className="text-foreground">"claude-sonnet-4.6"</span>, <span className="text-foreground">"gpt-5.4"</span>, <span className="text-foreground">"gemini-3-pro"</span></div>
+                <div className="text-xs text-muted-foreground">Example: <span className="text-foreground">"openai-large"</span>, <span className="text-foreground">"openai-fast"</span>, <span className="text-foreground">"openai-fast"</span></div>
               </div>
               <div className="border-t border-border pt-4">
                 <div className="flex items-center gap-2 mb-1">
@@ -287,10 +287,10 @@ export default function Docs() {
             <h3 className="text-lg font-bold mb-3">Example Request</h3>
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
-                <CopyButton text={'{"modelId":"claude-sonnet-4.6","messages":[{"role":"user","content":"Hello!"}]}'} />
+                <CopyButton text={'{"modelId":"openai-large","messages":[{"role":"user","content":"Hello!"}]}'} />
               </div>
               <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
-                <code>{`{\n  "modelId": "claude-sonnet-4.6",\n  "messages": [\n    { "role": "user", "content": "Hello!" }\n  ]\n}`}</code>
+                <code>{`{\n  "modelId": "openai-large",\n  "messages": [\n    { "role": "user", "content": "Hello!" }\n  ]\n}`}</code>
               </pre>
             </div>
           </section>
@@ -342,10 +342,10 @@ export default function Docs() {
             <div className="rounded-lg border border-border overflow-hidden my-6">
               <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2">
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">cURL</span>
-                <CopyButton text={`curl ${baseUrl}/api/v1/chat/completions \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    "model": "gpt-5.4",\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`} />
+                <CopyButton text={`curl ${baseUrl}/api/v1/chat/completions \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    "model": "openai-fast",\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`} />
               </div>
               <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
-                <code>{`curl ${baseUrl}/api/v1/chat/completions \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    "model": "gpt-5.4",\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`}</code>
+                <code>{`curl ${baseUrl}/api/v1/chat/completions \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    "model": "openai-fast",\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`}</code>
               </pre>
             </div>
 
@@ -357,7 +357,7 @@ export default function Docs() {
                   <span className="text-muted-foreground text-xs">string</span>
                   <span className="text-red-400 text-xs">Required</span>
                 </div>
-                <div className="text-muted-foreground text-xs mb-2">Any catalog id (e.g. <span className="text-foreground">"gpt-5.4"</span>, <span className="text-foreground">"claude-sonnet-4.6"</span>, <span className="text-foreground">"gemini-3-pro"</span>) or an Anthropic-style dashed name.</div>
+                <div className="text-muted-foreground text-xs mb-2">Any catalog id (e.g. <span className="text-foreground">"openai-fast"</span>, <span className="text-foreground">"openai-large"</span>, <span className="text-foreground">"openai-fast"</span>) or an Anthropic-style dashed name.</div>
               </div>
               <div className="border-t border-border pt-4">
                 <div className="flex items-center gap-2 mb-1">
@@ -404,10 +404,10 @@ export default function Docs() {
             <h3 className="text-lg font-bold mb-3">Response</h3>
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
-                <CopyButton text={`{\n  "id": "chatcmpl-abc...",\n  "object": "chat.completion",\n  "created": 1710000000,\n  "model": "gpt-5.4",\n  "choices": [\n    {\n      "index": 0,\n      "message": { "role": "assistant", "content": "Hello!" },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 8,\n    "total_tokens": 20\n  }\n}`} />
+                <CopyButton text={`{\n  "id": "chatcmpl-abc...",\n  "object": "chat.completion",\n  "created": 1710000000,\n  "model": "openai-fast",\n  "choices": [\n    {\n      "index": 0,\n      "message": { "role": "assistant", "content": "Hello!" },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 8,\n    "total_tokens": 20\n  }\n}`} />
               </div>
               <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
-                <code>{`{\n  "id": "chatcmpl-abc...",\n  "object": "chat.completion",\n  "created": 1710000000,\n  "model": "gpt-5.4",\n  "choices": [\n    {\n      "index": 0,\n      "message": { "role": "assistant", "content": "Hello!" },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 8,\n    "total_tokens": 20\n  }\n}`}</code>
+                <code>{`{\n  "id": "chatcmpl-abc...",\n  "object": "chat.completion",\n  "created": 1710000000,\n  "model": "openai-fast",\n  "choices": [\n    {\n      "index": 0,\n      "message": { "role": "assistant", "content": "Hello!" },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 8,\n    "total_tokens": 20\n  }\n}`}</code>
               </pre>
             </div>
 
@@ -483,7 +483,7 @@ export default function Docs() {
                   <span className="text-muted-foreground text-xs">string</span>
                   <span className="text-red-400 text-xs">Required</span>
                 </div>
-                <div className="text-muted-foreground text-xs mb-2">Any catalog id (e.g. <span className="text-foreground">"gpt-5.4"</span>) or an Anthropic-style dashed name (e.g. <span className="text-foreground">"claude-sonnet-4-6"</span>).</div>
+                <div className="text-muted-foreground text-xs mb-2">Any catalog id (e.g. <span className="text-foreground">"openai-fast"</span>) or an Anthropic-style dashed name (e.g. <span className="text-foreground">"claude-sonnet-4-6"</span>).</div>
               </div>
               <div className="border-t border-border pt-4">
                 <div className="flex items-center gap-2 mb-1">
@@ -661,10 +661,10 @@ export default function Docs() {
             </p>
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
-                <CopyButton text={'{"modelId":"claude-sonnet-4.6","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"https://example.com/image.jpg"}}]}]}'} />
+                <CopyButton text={'{"modelId":"openai-large","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"https://example.com/image.jpg"}}]}]}'} />
               </div>
               <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
-                <code>{`{\n  "modelId": "claude-sonnet-4.6",\n  "messages": [\n    {\n      "role": "user",\n      "content": [\n        { "type": "text", "text": "What is in this image?" },\n        { "type": "image_url", "image_url": { "url": "https://example.com/image.jpg" } }\n      ]\n    }\n  ]\n}`}</code>
+                <code>{`{\n  "modelId": "openai-large",\n  "messages": [\n    {\n      "role": "user",\n      "content": [\n        { "type": "text", "text": "What is in this image?" },\n        { "type": "image_url", "image_url": { "url": "https://example.com/image.jpg" } }\n      ]\n    }\n  ]\n}`}</code>
               </pre>
             </div>
             <p className="text-muted-foreground mt-4 text-sm leading-relaxed">

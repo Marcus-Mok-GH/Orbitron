@@ -12,6 +12,10 @@ import {
   openAIMap,
   anthropicMap,
   geminiMap,
+  pollinationsMap,
+  pollinations,
+  pollinationsMap,
+  pollinations,
   runOpenAI,
   runAnthropic,
   runGemini,
@@ -137,7 +141,8 @@ export function registerAnthropicCompatRoutes(app: Express): void {
     if (
       !(catalogId in openAIMap) &&
       !(catalogId in anthropicMap) &&
-      !(catalogId in geminiMap)
+      !(catalogId in geminiMap) &&
+      !(catalogId in pollinationsMap)
     ) {
       return res.status(400).json({
         type: "error",
@@ -604,6 +609,22 @@ async function dispatchToRunner(args: {
   } else if (catalogId in openAIMap) {
     await runOpenAI({
       model: openAIMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...(userAnthropicTools
+        ? {
+            userTools: anthropicToOpenaiTools(userAnthropicTools),
+            userToolChoice: anthropicToOpenaiToolChoice(userAnthropicToolChoice),
+          }
+        : {}),
+    });
+  } else if (catalogId in pollinationsMap) {
+    await runOpenAI({
+      client: pollinations,
+      model: pollinationsMap[catalogId],
       messages,
       temperature,
       maxTokens,
