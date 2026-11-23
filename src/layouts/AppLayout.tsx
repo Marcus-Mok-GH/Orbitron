@@ -62,7 +62,7 @@ export function AppLayout() {
 
   const initials = initialsFor(user);
   const displayName = displayNameFor(user);
-  const emailLine = user.email || "Signed in via Replit";
+  const emailLine = user.email || "Signed in";
 
   const handleLogout = () => {
     logout();
@@ -136,19 +136,6 @@ export function AppLayout() {
               <UserCircle2 className="w-4 h-4 text-muted-foreground" />
               Account settings
             </Link>
-            <a
-              href="https://replit.com/account"
-              target="_blank"
-              rel="noreferrer noopener"
-              role="menuitem"
-              className="flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors"
-              onClick={() => setAccountMenuOpen(false)}
-            >
-              <span className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                Manage on Replit
-              </span>
-            </a>
             <div className="border-t border-border" />
             <button
               type="button"

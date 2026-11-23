@@ -20,17 +20,30 @@ import { query } from "./db";
 import { randomBytes } from "node:crypto";
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey:
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ??
+    process.env.OPENAI_API_KEY ??
+    "unset",
+  baseURL:
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL,
 });
 
 const anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+  apiKey:
+    process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ??
+    process.env.ANTHROPIC_API_KEY ??
+    "unset",
+  baseURL:
+    process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ??
+    process.env.ANTHROPIC_BASE_URL,
 });
 
 const gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+  apiKey:
+    process.env.AI_INTEGRATIONS_GEMINI_API_KEY ??
+    process.env.GEMINI_API_KEY ??
+    process.env.GOOGLE_API_KEY ??
+    "unset",
   httpOptions: {
     apiVersion: "",
     baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,

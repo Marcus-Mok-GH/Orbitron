@@ -6,6 +6,20 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { createAuthClient } from "@neon/neon-js/auth";
+
+/**
+ * Neon Auth (Managed Better Auth) client.
+ *
+ * The session cookie lives on Neon's managed auth domain, so our own API
+ * never sees it. The SPA talks to Neon directly for sign-in / sign-out /
+ * session state, and forwards the JWT from `session.access_token` to our
+ * Express API as `Authorization: Bearer <token>`.
+ */
+
+const NEON_AUTH_URL = (import.meta.env.VITE_NEON_AUTH_URL ?? "") as string;
+
+export const authClient = createAuthClient(NEON_AUTH_URL);
 
 export interface AuthUser {
   id: string;
@@ -18,35 +32,73 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   loading: boolean;
-  /** Redirects to the Replit Auth login flow. */
+  /** Navigate to the sign-in page. */
   login(): void;
-  /** Redirects to the Replit Auth logout flow. */
-  logout(): void;
+  /** Sign out via Neon Auth and clear local state. */
+  logout(): void | Promise<void>;
   refresh(): Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
-/**
- * Navigate to a Replit Auth endpoint without leaking a window.opener reference.
- *
- * If the current tab was opened from another window (e.g. the Replit
- * workspace's "Open in new tab" button on the preview pane), `window.opener`
- * will be set. Replit's OIDC consent page detects that and calls
- * `window.close()` after the user authorizes — which closes the user's app
- * tab instead of returning control to it. Disconnecting the opener before
- * navigating prevents that auto-close behaviour.
- */
-export function gotoAuth(path: "/api/login" | "/api/logout"): void {
+interface NeonSessionUser {
+  id?: string;
+  email?: string;
+  name?: string;
+  image?: string | null;
+}
+
+function mapNeonUser(u: NeonSessionUser | undefined | null): AuthUser | null {
+  if (!u?.id) return null;
+  const nameParts = u.name ? u.name.split(/\s+/) : [];
+  return {
+    id: u.id,
+    email: u.email ?? null,
+    firstName: nameParts[0] ?? null,
+    lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : null,
+    profileImageUrl: u.image ?? null,
+  };
+}
+
+async function fetchSession(): Promise<{
+  user: AuthUser | null;
+  accessToken: string | null;
+}> {
   try {
-    if (window.opener) {
-      // Some browsers make this a no-op for cross-origin openers; that's fine.
-      (window as any).opener = null;
+    const result = await authClient.getSession();
+    const data = (result as { data?: { session?: { access_token?: string; token?: string } | null; user?: NeonSessionUser | null } }).data;
+    if (data?.session && data?.user) {
+      return {
+        user: mapNeonUser(data.user),
+        // @neon/neon-js exposes the session JWT as `token` (older docs call it
+        // `access_token`) — accept either spelling.
+        accessToken: data.session.access_token ?? data.session.token ?? null,
+      };
     }
   } catch {
-    // ignore — best-effort
+    // Network / service errors → treat as signed out.
   }
-  window.location.href = path;
+  return { user: null, accessToken: null };
+}
+
+/** Get the current Neon Auth JWT, refreshing the session if needed. */
+export async function getAccessToken(): Promise<string | null> {
+  return (await fetchSession()).accessToken;
+}
+
+/**
+ * Drop-in replacement for `fetch` that attaches the Neon Auth JWT as a
+ * Bearer token. Use for any call to our own API that requires a signed-in
+ * session (the chat/image endpoints instead take an Orbitron API key).
+ */
+export async function authFetch(
+  input: string | URL | globalThis.Request,
+  init?: RequestInit,
+): Promise<Response> {
+  const token = await getAccessToken();
+  const headers = new Headers(init?.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(input, { ...init, headers, credentials: "include" });
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -54,19 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/user", { credentials: "include" });
-      if (res.ok) {
-        const data = (await res.json()) as AuthUser;
-        setUser(data);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
+    const { user: next } = await fetchSession();
+    setUser(next);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -74,15 +116,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const login = useCallback(() => {
-    gotoAuth("/api/login");
+    window.location.href = "/login";
   }, []);
 
-  const logout = useCallback(() => {
-    gotoAuth("/api/logout");
+  const logout = useCallback(async () => {
+    try {
+      await authClient.signOut();
+    } catch {
+      // Best-effort — clear local state regardless.
+    }
+    setUser(null);
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, loading, login, logout, refresh }),
+    () => ({
+      user,
+      loading,
+      login,
+      logout,
+      refresh,
+    }),
     [user, loading, login, logout, refresh],
   );
 

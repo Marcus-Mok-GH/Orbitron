@@ -26,15 +26,25 @@ Image prices are non-zero per model in `IMAGE_PRICE_USD` (`gpt-image-1=$0.04`, `
 
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind + React Router v6 + lucide-react
 - **Backend**: Express (`tsx server/index.ts`) running Vite as middleware on port 5000
-- **Providers**: OpenAI, Anthropic, Google Gemini via Replit AI Integrations (no API keys required)
-- **Database**: Replit Postgres (raw `pg` driver) — `users`, `sessions`, `api_keys` tables
-- **Auth**: **Replit Auth** (OIDC / "Log In with Replit") via `openid-client` + `passport` +
-  `express-session`, with sessions persisted in Postgres through `connect-pg-simple`. Personal
-  API keys hashed with SHA-256 (only the prefix is stored in plaintext for display).
+- **Providers**: OpenAI, Anthropic, Google Gemini via `AI_INTEGRATIONS_*` env vars
+  (`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`GEMINI_API_KEY` style — set what you have; unused
+  providers report "down" on the Status page)
+- **Database**: **Neon Postgres** (raw `pg` driver, pooled connection string in `DATABASE_URL`)
+  — `users`, `api_keys`, `usage_events`, `credit_grants`, `shared_chats` tables. Auth identities
+  live in Neon's managed `neon_auth` schema (`neon_auth.user`, `neon_auth.session`).
+- **Auth**: **Neon Auth** (Managed Better Auth). The SPA signs in with email + password through
+  `@neon/neon-js` (`VITE_NEON_AUTH_URL`); the session cookie lives on Neon's auth domain, so the
+  SPA forwards the JWT from `session.access_token` as `Authorization: Bearer <token>` and the
+  Express API verifies it against `NEON_AUTH_JWKS_URL` (see `server/neonAuth.ts`). Verified
+  users are upserted into the app's `users` table on first request (which is where the $5
+  welcome credit fires). Personal API keys hashed with SHA-256 (only the prefix is stored in
+  plaintext for display).
 
 ## Run
 
-`Start application` workflow runs `npm run dev` → `tsx server/index.ts`. Single port (5000) serves both the API and the Vite dev frontend with HMR.
+`npm run dev` → `tsx --env-file-if-exists=.env.local server/index.ts`. Single port (5000) serves both the API and the Vite dev frontend with HMR. For production: `npm run build` then `npm run start` (NODE_ENV=production node dist-server/index.js).
+
+Required env vars: `DATABASE_URL` (Neon pooled connection string), `NEON_AUTH_JWKS_URL`, `VITE_NEON_AUTH_URL` (baked into the frontend at build time).
 
 ## Routes
 
@@ -42,9 +52,8 @@ Marketing (top nav + footer): `/`, `/models`, `/models/:id`, `/pricing`, `/docs`
 
 App (sidebar shell): `/chat`, `/keys`, `/usage`, `/credits`, `/settings`
 
-Auth: `/login` and `/signup` are kept as legacy SPA routes that auto-redirect to `/api/login`
-(the Replit Auth flow). The marketing header's "Log in" / "Get Started" buttons and the
-`AppLayout` redirect-when-unauthenticated all point at `/api/login`.
+Auth: `/login` and `/signup` are email + password forms backed by Neon Auth (Managed Better
+Auth). The marketing header's "Log in" / "Get Started" buttons point at `/login`.
 
 Global: Cmd/Ctrl+K opens a model search palette.
 

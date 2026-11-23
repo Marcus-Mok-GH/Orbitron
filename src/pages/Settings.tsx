@@ -17,7 +17,7 @@ import {
   DollarSign,
   Trash2,
 } from "lucide-react";
-import { useAuth, displayNameFor, initialsFor } from "../lib/auth";
+import { useAuth, displayNameFor, initialsFor, authFetch } from "../lib/auth";
 
 interface UserPreferences {
   theme: "light" | "dark" | "system";
@@ -127,7 +127,7 @@ export default function Settings() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch("/api/account/delete", {
+      const res = await authFetch("/api/account/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -162,7 +162,7 @@ export default function Settings() {
 
   const refreshSessions = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/sessions", { credentials: "include" });
+      const res = await authFetch("/api/auth/sessions");
       if (!res.ok) throw new Error(`Failed (${res.status})`);
       const body = (await res.json()) as { data: SessionInfo[] };
       setSessions(body.data);
@@ -175,7 +175,7 @@ export default function Settings() {
   // Fetch preferences from server when authenticated
   const refreshPreferences = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/preferences", { credentials: "include" });
+      const res = await authFetch("/api/auth/preferences");
       if (!res.ok) throw new Error(`Failed (${res.status})`);
       const prefs = await res.json() as UserPreferences;
       setPreferences(prefs);
@@ -203,7 +203,7 @@ export default function Settings() {
     setRevoking(true);
     setRevokeNotice(null);
     try {
-      const res = await fetch("/api/auth/sessions/revoke-others", {
+      const res = await authFetch("/api/auth/sessions/revoke-others", {
         method: "POST",
         credentials: "include",
       });
@@ -238,7 +238,7 @@ export default function Settings() {
 
     setSavingPrefs(true);
     try {
-      const res = await fetch("/api/auth/preferences", {
+      const res = await authFetch("/api/auth/preferences", {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -333,7 +333,7 @@ export default function Settings() {
                   </div>
                 )}
                 <div className="text-xs font-mono text-muted-foreground max-w-xs">
-                  Your avatar is provided by your Replit account. Update it in your Replit profile settings.
+                  Your avatar comes from your Neon Auth account profile.
                 </div>
               </div>
 
@@ -353,7 +353,7 @@ export default function Settings() {
                     type="email"
                     value={user?.email ?? ""}
                     readOnly
-                    placeholder="Not provided by your Replit account"
+                    placeholder="Not provided by your auth profile"
                     className="w-full bg-background border border-border rounded-md px-3 py-2 font-mono text-sm focus:outline-none max-w-md text-muted-foreground cursor-not-allowed"
                   />
                 </div>
@@ -369,16 +369,11 @@ export default function Settings() {
 
                 <div className="mt-6 p-4 border border-border rounded-md bg-muted/20 max-w-md">
                   <p className="text-xs font-mono text-muted-foreground mb-3">
-                    Profile fields are managed by your Replit account and refresh on every sign-in.
+                    Profile fields are managed by Neon Auth and refresh on every sign-in.
                   </p>
-                  <a
-                    href="https://replit.com/account"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground hover:underline"
-                  >
-                    Manage on Replit <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Managed by Neon Auth (Managed Better Auth)
+                  </p>
                 </div>
               </div>
 

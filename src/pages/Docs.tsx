@@ -122,7 +122,7 @@ export default function Docs() {
             </p>
             <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground mb-4">
               <li>
-                Create a free account by signing in with Replit at <a href="/api/login" className="text-foreground underline">/api/login</a>.
+                Create a free account by signing up at <Link to="/signup" className="text-foreground underline">/signup</Link>.
               </li>
               <li>
                 Open <Link to="/keys" className="text-foreground underline">the dashboard</Link> and click

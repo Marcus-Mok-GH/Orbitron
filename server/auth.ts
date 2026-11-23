@@ -1,7 +1,8 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { randomBytes, createHash } from "node:crypto";
 import { query } from "./db";
-import { isAuthenticated as isReplitAuthenticated } from "./replit_integrations/auth";
+import { authStorage } from "./storage";
+import { verifyNeonToken, tokenFromRequest } from "./neonAuth";
 import { getKeyUsageSummary } from "./usage";
 
 const KEY_PREFIX = "sk-sb-v1-";
@@ -114,36 +115,52 @@ async function rotateDashboardKey(userId: string): Promise<string> {
   return full;
 }
 
+/**
+ * Resolve the signed-in user from the Neon Auth JWT in the Authorization
+ * header. Verifies the token against Neon Auth's JWKS, then upserts the user
+ * into the local `users` table (id = the JWT `sub`, the neon_auth user id) so
+ * API keys, credits, and usage rows can reference it. The upsert is where the
+ * welcome credit grant fires for first-time users.
+ */
 async function getSessionUser(req: Request): Promise<AuthUser | null> {
-  if (!req.isAuthenticated || !req.isAuthenticated()) return null;
-  const claims = (req.user as any)?.claims;
-  const userId = claims?.sub;
-  if (!userId) return null;
-  const result = await query<UserLookupRow>(
-    `SELECT id, email, first_name, last_name, profile_image_url
-       FROM users WHERE id = $1`,
-    [userId],
-  );
-  const row = result.rows[0];
-  return row ? rowToUser(row) : null;
+  const token = tokenFromRequest(req);
+  if (!token) return null;
+  const claims = await verifyNeonToken(token);
+  if (!claims) return null;
+
+  const nameParts = claims.name ? claims.name.split(/\s+/) : [];
+  const user = await authStorage.upsertUser({
+    id: claims.sub,
+    email: claims.email,
+    firstName: nameParts[0] ?? null,
+    lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : null,
+    profileImageUrl: claims.picture,
+  });
+  return rowToUser({
+    id: user.id,
+    email: user.email,
+    first_name: user.firstName,
+    last_name: user.lastName,
+    profile_image_url: user.profileImageUrl,
+  });
 }
 
 /**
  * Resolve auth from either:
- *   - Authorization: Bearer <api key>
- *   - Replit Auth session (passport)
+ *   - Authorization: Bearer <api key> (keys start with the KEY_PREFIX)
+ *   - Authorization: Bearer <Neon Auth JWT> (browser session)
  * Sets req.auth on success. Does not reject — that's the caller's job.
  */
 export async function resolveAuth(req: Request): Promise<AuthContext | null> {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (token) {
+    if (token && token.startsWith(KEY_PREFIX)) {
       const result = await getUserFromBearer(token);
       if (result) {
         return { user: result.user, via: "api_key", apiKeyId: result.keyId };
       }
-      // Bearer was provided but invalid — return null so caller can 401.
+      // API-key Bearer was provided but invalid — return null so caller can 401.
       return null;
     }
   }
@@ -162,7 +179,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return res.status(401).json({
       error: {
         message:
-          "Authentication required. Sign in with Replit, or pass 'Authorization: Bearer <api key>'. Generate a key at /keys.",
+          "Authentication required. Sign in, or pass 'Authorization: Bearer <api key>'. Generate a key at /keys.",
         type: "unauthorized",
       },
     });
@@ -279,22 +296,19 @@ export async function requireApiKeyAnthropic(
 }
 
 /**
- * Express middleware: require a Replit Auth session (used for /api/keys).
- * Wraps Replit Auth's `isAuthenticated` (which handles token refresh) and then
- * loads the database user record into req.auth.
+ * Express middleware: require a signed-in session (used for /api/keys and the
+ * dashboard-key endpoint). Resolves the Neon Auth JWT from the Authorization
+ * header and loads the database user record into req.auth.
  */
-export function requireSession(req: Request, res: Response, next: NextFunction) {
-  isReplitAuthenticated(req, res, async (err?: unknown) => {
-    if (err) return next(err);
-    const user = await getSessionUser(req);
-    if (!user) {
-      return res.status(401).json({
-        error: { message: "You must be signed in.", type: "unauthorized" },
-      });
-    }
-    req.auth = { user, via: "session" };
-    next();
-  });
+export async function requireSession(req: Request, res: Response, next: NextFunction) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({
+      error: { message: "You must be signed in.", type: "unauthorized" },
+    });
+  }
+  req.auth = { user, via: "session" };
+  next();
 }
 
 export function registerKeyRoutes(app: Express): void {

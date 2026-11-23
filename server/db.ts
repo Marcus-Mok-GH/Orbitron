@@ -1,7 +1,6 @@
 import pg from "pg";
 
 const { Pool } = pg;
-
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. Provision a database before starting the server.");
 }
@@ -22,17 +21,20 @@ export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
 }
 
 /**
- * Ensure the schema needed by Replit Auth + the API key flow exists.
+ * Ensure the schema needed by Neon Auth + the API key flow exists.
  * Called once at server startup so a fresh environment can sign in immediately
  * without manual migration steps.
  *
- * Replit Auth requires:
- *   - users(id varchar PK, email, first_name, last_name, profile_image_url, created_at, updated_at)
- *   - sessions(sid varchar PK, sess jsonb, expire timestamp) with expire index
+ * Neon Auth (Managed Better Auth) keeps its own user/session data in the
+ * `neon_auth` schema — we only create the app-side tables here:
+ *   - users(id varchar PK, email, first_name, last_name, profile_image_url, ...)
+ *     — a local mirror of neon_auth.user, keyed by the same id, holding app
+ *     state (credits, preferences) that the auth service doesn't own.
+ *   - api_keys and the rest of the app schema.
  *
  * On first boot we drop any pre-existing legacy email/password users + sessions
  * tables (Orbitron previously had its own auth) so they can be recreated to
- * match the Replit Auth shape. api_keys is dropped along with them because its
+ * match the Neon Auth shape. api_keys is dropped along with them because its
  * user_id column referenced the old UUID primary key.
  */
 export async function ensureSchema(): Promise<void> {
@@ -59,13 +61,11 @@ export async function ensureSchema(): Promise<void> {
   await pool.query(`
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-    -- Replit Auth users table. id is the OIDC subject claim (string).
-    -- Note: email is intentionally NOT UNIQUE. The auth identity is the id
-    -- column (the OIDC sub). Two distinct sub values can legitimately share
-    -- an email (e.g. a user signs in via different OIDC clients, or Apple
-    -- Hide-My-Email returns a relay we have already seen). Enforcing UNIQUE
-    -- on email caused login to 500 with users_email_key violations on the
-    -- upsert INSERT path before ON CONFLICT (id) could fire.
+    -- App-side user record mirroring neon_auth.user. id is the Neon Auth
+    -- user id (JWT 'sub'), which is also the primary key used by api_keys,
+    -- credits, and usage rows. Note: email is intentionally NOT UNIQUE —
+    -- the auth identity is the id column; Neon Auth enforces uniqueness on
+    -- its own side.
     CREATE TABLE IF NOT EXISTS users (
       id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
       email VARCHAR,
@@ -75,19 +75,6 @@ export async function ensureSchema(): Promise<void> {
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
-
-    -- Migration: drop legacy UNIQUE constraint on users.email if present.
-    -- Older deploys created the table with email VARCHAR UNIQUE which
-    -- breaks login for the case described above. Safe to run repeatedly.
-    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-
-    -- Session store for connect-pg-simple. Schema is mandated by the library.
-    CREATE TABLE IF NOT EXISTS sessions (
-      sid VARCHAR PRIMARY KEY,
-      sess JSONB NOT NULL,
-      expire TIMESTAMP NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON sessions(expire);
 
     CREATE TABLE IF NOT EXISTS api_keys (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -217,11 +204,3 @@ export async function ensureSchema(): Promise<void> {
   `);
 }
 
-/** Best-effort cleanup of expired session rows. Safe to call periodically. */
-export async function purgeExpiredSessions(): Promise<void> {
-  try {
-    await pool.query("DELETE FROM sessions WHERE expire < NOW()");
-  } catch (err) {
-    console.error("purgeExpiredSessions failed:", err);
-  }
-}

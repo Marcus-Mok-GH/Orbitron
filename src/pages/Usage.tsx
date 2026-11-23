@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { authFetch } from "../lib/auth";
 import { Activity, AlertCircle, Loader2 } from "lucide-react";
 
 interface UsageSummary {

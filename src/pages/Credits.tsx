@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authFetch } from "../lib/auth";
 import { CreditCard, Wallet, ArrowRight, Gift, Sparkles } from "lucide-react";
 
 interface Grant {
@@ -58,7 +59,7 @@ export default function Credits() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch("/api/credits", { credentials: "include" })
+    authFetch("/api/credits")
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return (await r.json()) as CreditsResponse;

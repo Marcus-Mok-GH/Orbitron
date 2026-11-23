@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Image as ImageIcon, Loader2, Download, Sparkles, Trash2, AlertCircle } from "lucide-react";
+import { authFetch } from "../lib/auth";
 import { getDashboardKey, resetDashboardKey } from "../lib/dashboardKey";
 
 // Lazy-initialized browser support check (SSR-safe)
@@ -222,7 +223,7 @@ export default function Images() {
       // user ever seeing or managing a key.
       const callImages = async (): Promise<Response> => {
         const apiKey = await getDashboardKey();
-        return fetch("/api/images", {
+        return authFetch("/api/images", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

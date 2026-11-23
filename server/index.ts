@@ -5,13 +5,8 @@ import { registerApiRoutes } from "./api";
 import { registerKeyRoutes } from "./auth";
 import { registerAnthropicCompatRoutes } from "./anthropicCompat";
 import { registerOpenAICompatRoutes } from "./openaiCompat";
-import {
-  setupAuth,
-  registerAuthRoutes,
-  registerSessionRoutes,
-  trackSessionActivity,
-} from "./replit_integrations/auth";
-import { ensureSchema, purgeExpiredSessions } from "./db";
+import { registerAuthRoutes } from "./authRoutes";
+import { ensureSchema } from "./db";
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
@@ -23,20 +18,11 @@ async function start() {
   // Run schema bootstrap before serving any traffic so a fresh environment
   // can sign in immediately without manual migration steps.
   await ensureSchema();
-  await purgeExpiredSessions();
-  // Sweep expired sessions every 6 hours.
-  setInterval(() => {
-    void purgeExpiredSessions();
-  }, 6 * 60 * 60 * 1000).unref?.();
 
-  // Replit Auth (sets up session, passport, /api/login, /api/logout, /api/callback).
-  // Must happen BEFORE any route that depends on session/passport state.
-  await setupAuth(app);
-  // Stamp every authenticated request with userAgent / ip / lastSeenAt so the
-  // Settings → Recent sign-ins panel has data. Cheap (rate-limited internally).
-  app.use(trackSessionActivity);
+  // Neon Auth (Managed Better Auth). The browser session lives on Neon's
+  // managed auth service; this API authenticates requests via the JWT the SPA
+  // forwards in `Authorization: Bearer <token>` (see server/neonAuth.ts).
   registerAuthRoutes(app);
-  registerSessionRoutes(app);
 
   registerKeyRoutes(app);
   registerChatRoutes(app);

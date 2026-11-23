@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { authFetch } from "../lib/auth";
 import {
   Plus,
   Copy,
@@ -311,7 +312,7 @@ export default function Keys() {
           [id]: { loading: true, data: null, error: null },
         }));
         try {
-          const res = await fetch(`/api/keys/${id}/usage?days=30`, {
+          const res = await authFetch(`/api/keys/${id}/usage?days=30`, {
             credentials: "include",
           });
           if (!res.ok) {
@@ -341,7 +342,7 @@ export default function Keys() {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/keys", { credentials: "include" });
+      const res = await authFetch("/api/keys");
       if (res.status === 401) {
         setKeys([]);
         setLoadError("Sign in to view your API keys.");
@@ -379,7 +380,7 @@ export default function Keys() {
       if (newCap !== "" && Number.isFinite(capDollars) && capDollars >= 0) {
         body.monthlyCapCents = Math.floor(capDollars * 100);
       }
-      const res = await fetch("/api/keys", {
+      const res = await authFetch("/api/keys", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -407,7 +408,7 @@ export default function Keys() {
     if (!confirm("Revoke this key? Any apps using it will stop working immediately.")) return;
     setRevokingId(id);
     try {
-      const res = await fetch(`/api/keys/${id}`, {
+      const res = await authFetch(`/api/keys/${id}`, {
         method: "DELETE",
         credentials: "include",
       });

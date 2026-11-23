@@ -8,6 +8,8 @@
 // the next call re-provisions a new one — handles cases where the user
 // signed out in another tab or the key was rotated server-side.
 
+import { authFetch } from "./auth";
+
 let cachedKey: string | null = null;
 let inflight: Promise<string> | null = null;
 
@@ -15,9 +17,8 @@ export async function getDashboardKey(): Promise<string> {
   if (cachedKey) return cachedKey;
   if (inflight) return inflight;
   inflight = (async () => {
-    const res = await fetch("/api/auth/dashboard-key", {
+    const res = await authFetch("/api/auth/dashboard-key", {
       method: "POST",
-      credentials: "include",
     });
     if (!res.ok) {
       inflight = null;

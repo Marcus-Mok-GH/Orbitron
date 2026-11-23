@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { authFetch } from "../lib/auth";
 import { getDashboardKey, resetDashboardKey } from "../lib/dashboardKey";
 import {
   Settings2,
@@ -325,7 +326,7 @@ export default function Chat() {
 
   // Fetch credit balance on mount (best-effort)
   useEffect(() => {
-    fetch("/api/credits", { credentials: "include" })
+    authFetch("/api/credits")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.balanceCents !== undefined) {
@@ -421,7 +422,7 @@ export default function Chat() {
     if (!conv || conv.messages.length === 0) return;
     setShareState((s) => ({ ...s, [id]: "sharing" }));
     try {
-      const res = await fetch("/api/share", {
+      const res = await authFetch("/api/share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -510,7 +511,7 @@ export default function Chat() {
       // re-provision once before bubbling the error up.
       const callChat = async (): Promise<Response> => {
         const apiKey = await getDashboardKey();
-        return fetch("/api/chat", {
+        return authFetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
