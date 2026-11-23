@@ -3,6 +3,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 
 // server/chat.ts
+import { randomBytes as randomBytes2 } from "node:crypto";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
@@ -365,24 +366,20 @@ async function ensureSchema() {
   await pool.query(`
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-    -- Replit Auth users table. id is the OIDC subject claim (string).
+    -- App-side user record mirroring neon_auth.user. id is the Neon Auth
+    -- user id (JWT 'sub'), which is also the primary key used by api_keys,
+    -- credits, and usage rows. Note: email is intentionally NOT UNIQUE \u2014
+    -- the auth identity is the id column; Neon Auth enforces uniqueness on
+    -- its own side.
     CREATE TABLE IF NOT EXISTS users (
       id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      email VARCHAR UNIQUE,
+      email VARCHAR,
       first_name VARCHAR,
       last_name VARCHAR,
       profile_image_url VARCHAR,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
-
-    -- Session store for connect-pg-simple. Schema is mandated by the library.
-    CREATE TABLE IF NOT EXISTS sessions (
-      sid VARCHAR PRIMARY KEY,
-      sess JSONB NOT NULL,
-      expire TIMESTAMP NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON sessions(expire);
 
     CREATE TABLE IF NOT EXISTS api_keys (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -507,23 +504,8 @@ async function ensureSchema() {
      WHERE id IN (SELECT user_id FROM grants);
   `);
 }
-async function purgeExpiredSessions() {
-  try {
-    await pool.query("DELETE FROM sessions WHERE expire < NOW()");
-  } catch (err) {
-    console.error("purgeExpiredSessions failed:", err);
-  }
-}
 
-// server/replit_integrations/auth/replitAuth.ts
-import * as client from "openid-client";
-import { Strategy } from "openid-client/passport";
-import passport from "passport";
-import session from "express-session";
-import memoize from "memoizee";
-import connectPg from "connect-pg-simple";
-
-// server/replit_integrations/auth/storage.ts
+// server/storage.ts
 function rowToUser(row) {
   return {
     id: row.id,
@@ -653,257 +635,43 @@ var AuthStorage = class {
 };
 var authStorage = new AuthStorage();
 
-// server/replit_integrations/auth/replitAuth.ts
-var getOidcConfig = memoize(
-  async () => {
-    return await client.discovery(
-      new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID
+// server/neonAuth.ts
+import { createRemoteJWKSet, jwtVerify } from "jose";
+var JWKS_URL = process.env.NEON_AUTH_JWKS_URL;
+var remoteJwks = null;
+function getJwks() {
+  if (!JWKS_URL) {
+    throw new Error(
+      "NEON_AUTH_JWKS_URL is not set. Enable Neon Auth on the database branch and copy the JWKS URL from the Neon console (or the enable-auth API response)."
     );
-  },
-  { maxAge: 3600 * 1e3 }
-);
-function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1e3;
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions"
-  });
-  return session({
-    secret: process.env.SESSION_SECRET,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: true,
-      maxAge: sessionTtl
-    }
-  });
-}
-function updateUserSession(user, tokens) {
-  user.claims = tokens.claims();
-  user.access_token = tokens.access_token;
-  user.refresh_token = tokens.refresh_token;
-  user.expires_at = user.claims?.exp;
-}
-async function upsertUser(claims) {
-  await authStorage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"]
-  });
-}
-async function setupAuth(app2) {
-  app2.set("trust proxy", 1);
-  app2.use(getSession());
-  app2.use(passport.initialize());
-  app2.use(passport.session());
-  const config = await getOidcConfig();
-  const verify = async (tokens, verified) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
-  };
-  const registeredStrategies = /* @__PURE__ */ new Set();
-  const ensureStrategy = (domain) => {
-    const strategyName = `replitauth:${domain}`;
-    if (!registeredStrategies.has(strategyName)) {
-      const strategy = new Strategy(
-        {
-          name: strategyName,
-          config,
-          scope: "openid email profile offline_access",
-          callbackURL: `https://${domain}/api/callback`
-        },
-        verify
-      );
-      passport.use(strategy);
-      registeredStrategies.add(strategyName);
-    }
-  };
-  passport.serializeUser((user, cb) => cb(null, user));
-  passport.deserializeUser((user, cb) => cb(null, user));
-  app2.get("/api/login", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"]
-    })(req, res, next);
-  });
-  app2.get("/api/callback", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/chat",
-      failureRedirect: "/api/login"
-    })(req, res, next);
-  });
-  app2.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`
-        }).href
-      );
-    });
-  });
-}
-var isAuthenticated = async (req, res, next) => {
-  const user = req.user;
-  if (!req.isAuthenticated() || !user?.expires_at) {
-    return res.status(401).json({ message: "Unauthorized" });
   }
-  const now = Math.floor(Date.now() / 1e3);
-  if (now <= user.expires_at) {
-    return next();
+  if (!remoteJwks) {
+    remoteJwks = createRemoteJWKSet(new URL(JWKS_URL));
   }
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
+  return remoteJwks;
+}
+function tokenFromRequest(req) {
+  const header = req.headers.authorization;
+  if (!header || !header.toLowerCase().startsWith("bearer ")) return null;
+  const token = header.slice(7).trim();
+  return token || null;
+}
+async function verifyNeonToken(token) {
   try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    const { payload } = await jwtVerify(token, getJwks(), {
+      algorithms: ["RS256", "ES256", "EdDSA", "PS256"]
+    });
+    if (typeof payload.sub !== "string" || !payload.sub) return null;
+    return {
+      sub: payload.sub,
+      email: typeof payload.email === "string" ? payload.email : null,
+      name: typeof payload.name === "string" ? payload.name : null,
+      picture: typeof payload.picture === "string" ? payload.picture : null
+    };
+  } catch (err) {
+    console.error("Neon Auth token verification failed:", err instanceof Error ? err.message : err);
+    return null;
   }
-};
-
-// server/replit_integrations/auth/routes.ts
-function registerAuthRoutes(app2) {
-  app2.get("/api/auth/user", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await authStorage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-  app2.get("/api/auth/preferences", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const preferences = await authStorage.getPreferences(userId);
-      res.json(preferences);
-    } catch (error) {
-      console.error("Error fetching preferences:", error);
-      res.status(500).json({ message: "Failed to fetch preferences" });
-    }
-  });
-  app2.put("/api/auth/preferences", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const updates = req.body;
-      if (updates.theme !== void 0 && !["light", "dark", "system"].includes(updates.theme)) {
-        return res.status(400).json({ message: "Invalid theme value" });
-      }
-      if (updates.usageAlertThresholdCents !== void 0) {
-        if (typeof updates.usageAlertThresholdCents !== "number" || updates.usageAlertThresholdCents < 0) {
-          return res.status(400).json({ message: "Invalid usage alert threshold" });
-        }
-      }
-      const preferences = await authStorage.updatePreferences(userId, updates);
-      res.json(preferences);
-    } catch (error) {
-      console.error("Error updating preferences:", error);
-      res.status(500).json({ message: "Failed to update preferences" });
-    }
-  });
-}
-
-// server/replit_integrations/auth/sessions.ts
-import { UAParser } from "ua-parser-js";
-function trackSessionActivity(req, _res, next) {
-  if (!req.session || !req.isAuthenticated || !req.isAuthenticated()) {
-    return next();
-  }
-  const sess = req.session;
-  const ua = req.get("user-agent") || null;
-  const ip = req.ip || null;
-  const now = Date.now();
-  const last = sess.lastSeenAt ? Date.parse(sess.lastSeenAt) : 0;
-  if (sess.userAgent !== ua || sess.ip !== ip || now - last > 6e4) {
-    sess.userAgent = ua;
-    sess.ip = ip;
-    sess.lastSeenAt = new Date(now).toISOString();
-    sess.createdAt = sess.createdAt ?? new Date(now).toISOString();
-  }
-  next();
-}
-function describeUA(ua) {
-  if (!ua) return { device: "Unknown device", browser: null, os: null };
-  const parsed = new UAParser(ua).getResult();
-  const browser = parsed.browser.name || null;
-  const os = parsed.os.name ? `${parsed.os.name}${parsed.os.version ? ` ${parsed.os.version}` : ""}` : null;
-  if (browser && os) return { device: `${browser} on ${os}`, browser, os };
-  if (browser) return { device: browser, browser, os: null };
-  if (os) return { device: os, browser: null, os };
-  return { device: "Unknown device", browser: null, os: null };
-}
-function publicSessionId(sid) {
-  return `${sid.slice(0, 8)}\u2026`;
-}
-function registerSessionRoutes(app2) {
-  app2.get("/api/auth/sessions", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
-      const result = await query(
-        `SELECT sid, sess, expire
-           FROM sessions
-          WHERE expire > NOW()
-            AND sess->'passport'->'user'->'claims'->>'sub' = $1
-          ORDER BY (sess->>'lastSeenAt')::timestamptz DESC NULLS LAST`,
-        [userId]
-      );
-      const data = result.rows.map((r) => {
-        const desc = describeUA(r.sess?.userAgent);
-        return {
-          id: publicSessionId(r.sid),
-          current: r.sid === req.sessionID,
-          device: desc.device,
-          browser: desc.browser,
-          os: desc.os,
-          ip: r.sess?.ip ?? null,
-          lastSeenAt: r.sess?.lastSeenAt ?? null,
-          createdAt: r.sess?.createdAt ?? null,
-          expiresAt: new Date(r.expire).toISOString()
-        };
-      });
-      res.json({ data });
-    } catch (err) {
-      console.error("list sessions failed:", err);
-      res.status(500).json({ message: "Failed to load sessions" });
-    }
-  });
-  app2.post("/api/auth/sessions/revoke-others", isAuthenticated, async (req, res) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      if (!userId) return res.status(401).json({ message: "Unauthorized" });
-      const result = await query(
-        `DELETE FROM sessions
-          WHERE sid <> $1
-            AND sess->'passport'->'user'->'claims'->>'sub' = $2`,
-        [req.sessionID, userId]
-      );
-      res.json({ ok: true, revoked: result.rowCount ?? 0 });
-    } catch (err) {
-      console.error("revoke other sessions failed:", err);
-      res.status(500).json({ message: "Failed to revoke sessions" });
-    }
-  });
 }
 
 // server/usage.ts
@@ -1188,23 +956,31 @@ async function rotateDashboardKey(userId) {
   return full;
 }
 async function getSessionUser(req) {
-  if (!req.isAuthenticated || !req.isAuthenticated()) return null;
-  const claims = req.user?.claims;
-  const userId = claims?.sub;
-  if (!userId) return null;
-  const result = await query(
-    `SELECT id, email, first_name, last_name, profile_image_url
-       FROM users WHERE id = $1`,
-    [userId]
-  );
-  const row = result.rows[0];
-  return row ? rowToUser2(row) : null;
+  const token = tokenFromRequest(req);
+  if (!token) return null;
+  const claims = await verifyNeonToken(token);
+  if (!claims) return null;
+  const nameParts = claims.name ? claims.name.split(/\s+/) : [];
+  const user = await authStorage.upsertUser({
+    id: claims.sub,
+    email: claims.email,
+    firstName: nameParts[0] ?? null,
+    lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : null,
+    profileImageUrl: claims.picture
+  });
+  return rowToUser2({
+    id: user.id,
+    email: user.email,
+    first_name: user.firstName,
+    last_name: user.lastName,
+    profile_image_url: user.profileImageUrl
+  });
 }
 async function resolveAuth(req) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (token) {
+    if (token && token.startsWith(KEY_PREFIX)) {
       const result = await getUserFromBearer(token);
       if (result) {
         return { user: result.user, via: "api_key", apiKeyId: result.keyId };
@@ -1223,7 +999,7 @@ async function requireAuth(req, res, next) {
   if (!ctx) {
     return res.status(401).json({
       error: {
-        message: "Authentication required. Sign in with Replit, or pass 'Authorization: Bearer <api key>'. Generate a key at /keys.",
+        message: "Authentication required. Sign in, or pass 'Authorization: Bearer <api key>'. Generate a key at /keys.",
         type: "unauthorized"
       }
     });
@@ -1267,18 +1043,56 @@ async function requireApiKey(req, res, next) {
   req.auth = { user: result.user, via: "api_key", apiKeyId: result.keyId };
   next();
 }
-function requireSession(req, res, next) {
-  isAuthenticated(req, res, async (err) => {
-    if (err) return next(err);
-    const user = await getSessionUser(req);
-    if (!user) {
-      return res.status(401).json({
-        error: { message: "You must be signed in.", type: "unauthorized" }
-      });
-    }
-    req.auth = { user, via: "session" };
-    next();
-  });
+async function requireApiKeyAnthropic(req, res, next) {
+  let token = "";
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+    token = authHeader.slice(7).trim();
+  }
+  if (!token) {
+    const xKey = req.headers["x-api-key"];
+    if (typeof xKey === "string") token = xKey.trim();
+  }
+  if (!token) {
+    return res.status(401).json({
+      type: "error",
+      error: {
+        type: "authentication_error",
+        message: "Missing API key. Pass 'x-api-key: <api key>' or 'Authorization: Bearer <api key>'. Generate a key at /keys."
+      }
+    });
+  }
+  if (!token.startsWith(KEY_PREFIX)) {
+    return res.status(401).json({
+      type: "error",
+      error: {
+        type: "authentication_error",
+        message: `Invalid API key format. Orbitron keys start with '${KEY_PREFIX}'.`
+      }
+    });
+  }
+  const result = await getUserFromBearer(token);
+  if (!result) {
+    return res.status(401).json({
+      type: "error",
+      error: {
+        type: "authentication_error",
+        message: "Invalid or revoked API key."
+      }
+    });
+  }
+  req.auth = { user: result.user, via: "api_key", apiKeyId: result.keyId };
+  next();
+}
+async function requireSession(req, res, next) {
+  const user = await getSessionUser(req);
+  if (!user) {
+    return res.status(401).json({
+      error: { message: "You must be signed in.", type: "unauthorized" }
+    });
+  }
+  req.auth = { user, via: "session" };
+  next();
 }
 function registerKeyRoutes(app2) {
   app2.post(
@@ -1551,15 +1365,15 @@ function formatWebSearchForModel(results) {
 
 // server/chat.ts
 var openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "unset",
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL
 });
 var anthropic = new Anthropic({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL
+  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? "unset",
+  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ?? process.env.ANTHROPIC_BASE_URL
 });
 var gemini = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "unset",
   httpOptions: {
     apiVersion: "",
     baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL
@@ -1628,11 +1442,21 @@ async function runToolCall(callId, name, args, ctx) {
 async function runOpenAI(opts) {
   const isReasoning = opts.model.startsWith("gpt-5") || opts.model.startsWith("o");
   const reasoningEffort = isReasoning ? opts.reasoningLevel ?? "medium" : void 0;
-  const messages = opts.messages.map((m) => ({
-    role: m.role,
-    content: m.content
-  }));
-  if (opts.useTools) {
+  const passthroughTools = !!opts.userTools && opts.userTools.length > 0;
+  const messages = opts.messages.map((m) => {
+    const out = { role: m.role, content: m.content };
+    if (m.tool_calls && m.tool_calls.length > 0) {
+      out.tool_calls = m.tool_calls.map((tc) => ({
+        id: tc.id,
+        type: "function",
+        function: { name: tc.name, arguments: tc.arguments }
+      }));
+      if (!m.content) out.content = null;
+    }
+    if (m.tool_call_id) out.tool_call_id = m.tool_call_id;
+    return out;
+  });
+  if (opts.useTools && !passthroughTools) {
     const sysIdx = messages.findIndex((m) => m.role === "system");
     if (sysIdx >= 0) {
       messages[sysIdx] = {
@@ -1645,7 +1469,8 @@ ${TOOLS_SYSTEM_HINT}`
       messages.unshift({ role: "system", content: TOOLS_SYSTEM_HINT });
     }
   }
-  for (let iter = 0; iter < MAX_TOOL_ITERATIONS + 1; iter++) {
+  const iterCap = passthroughTools ? 1 : MAX_TOOL_ITERATIONS + 1;
+  for (let iter = 0; iter < iterCap; iter++) {
     const roundInputTokens = approxTokens(
       messages.map((m) => typeof m.content === "string" ? m.content : JSON.stringify(m.content)).join("\n")
     );
@@ -1656,7 +1481,7 @@ ${TOOLS_SYSTEM_HINT}`
       ...isReasoning ? {} : { temperature: opts.temperature ?? 0.7 },
       ...reasoningEffort ? { reasoning_effort: reasoningEffort } : {},
       max_completion_tokens: opts.maxTokens ?? 4096,
-      ...opts.useTools && iter < MAX_TOOL_ITERATIONS ? { tools: [WEB_SEARCH_OPENAI_TOOL] } : {}
+      ...passthroughTools ? { tools: opts.userTools, ...opts.userToolChoice ? { tool_choice: opts.userToolChoice } : {} } : opts.useTools && iter < MAX_TOOL_ITERATIONS ? { tools: [WEB_SEARCH_OPENAI_TOOL] } : {}
     });
     let assistantText = "";
     const toolCalls = [];
@@ -1681,12 +1506,21 @@ ${TOOLS_SYSTEM_HINT}`
           if (tc.function?.arguments) {
             toolCalls[idx].function.arguments += tc.function.arguments;
           }
+          if (passthroughTools && opts.ctx.onModelToolCallChunk) {
+            opts.ctx.onModelToolCallChunk({
+              index: idx,
+              id: tc.id,
+              name: tc.function?.name,
+              argsDelta: tc.function?.arguments
+            });
+          }
         }
       }
     }
     const completedToolCalls = toolCalls.filter((t) => t && t.function.name);
     const roundOutputTokens = approxTokens(assistantText) + (completedToolCalls.length > 0 ? approxTokens(JSON.stringify(completedToolCalls)) : 0);
     opts.ctx.onRoundComplete(roundInputTokens, roundOutputTokens);
+    if (passthroughTools) return;
     if (completedToolCalls.length === 0) return;
     messages.push({
       role: "assistant",
@@ -1718,17 +1552,60 @@ async function runAnthropic(opts) {
   const supportsTemperature = !/^claude-opus-4-(6|7)$|^claude-sonnet-4-6$/.test(
     opts.model
   );
+  const passthroughTools = !!opts.userTools && opts.userTools.length > 0;
   let systemMessages = opts.messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  if (opts.useTools) {
+  if (opts.useTools && !passthroughTools) {
     systemMessages = systemMessages ? `${systemMessages}
 
 ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
   }
-  const turns = opts.messages.filter((m) => m.role !== "system").map((m) => ({
-    role: m.role,
-    content: m.content
-  }));
-  for (let iter = 0; iter < MAX_TOOL_ITERATIONS + 1; iter++) {
+  const turns = [];
+  let pendingToolResults = [];
+  const flushPendingResults = () => {
+    if (pendingToolResults.length > 0) {
+      turns.push({ role: "user", content: pendingToolResults });
+      pendingToolResults = [];
+    }
+  };
+  for (const m of opts.messages) {
+    if (m.role === "system") continue;
+    if (m.role === "tool") {
+      pendingToolResults.push({
+        type: "tool_result",
+        tool_use_id: m.tool_call_id ?? "",
+        content: m.content
+      });
+      continue;
+    }
+    flushPendingResults();
+    if (m.role === "assistant" && m.tool_calls && m.tool_calls.length > 0) {
+      const blocks = [];
+      if (m.content) blocks.push({ type: "text", text: m.content });
+      for (const tc of m.tool_calls) {
+        let parsedInput = {};
+        try {
+          parsedInput = tc.arguments ? JSON.parse(tc.arguments) : {};
+        } catch {
+          parsedInput = {};
+        }
+        blocks.push({
+          type: "tool_use",
+          id: tc.id,
+          name: tc.name,
+          input: parsedInput
+        });
+      }
+      turns.push({ role: "assistant", content: blocks });
+    } else {
+      turns.push({
+        role: m.role,
+        content: m.content
+      });
+    }
+  }
+  flushPendingResults();
+  const iterCap = passthroughTools ? 1 : MAX_TOOL_ITERATIONS + 1;
+  for (let iter = 0; iter < iterCap; iter++) {
     const roundInputTokens = approxTokens(systemMessages || "") + approxTokens(
       turns.map(
         (t) => typeof t.content === "string" ? t.content : JSON.stringify(t.content)
@@ -1740,14 +1617,35 @@ ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
       ...supportsTemperature ? { temperature: opts.temperature ?? 0.7 } : {},
       system: systemMessages || void 0,
       messages: turns,
-      ...opts.useTools && iter < MAX_TOOL_ITERATIONS ? { tools: [WEB_SEARCH_ANTHROPIC_TOOL] } : {}
+      ...passthroughTools ? {
+        tools: opts.userTools,
+        ...opts.userToolChoice ? { tool_choice: opts.userToolChoice } : {}
+      } : opts.useTools && iter < MAX_TOOL_ITERATIONS ? { tools: [WEB_SEARCH_ANTHROPIC_TOOL] } : {}
     });
     let assistantText = "";
+    const blockIdxToToolSlot = /* @__PURE__ */ new Map();
+    let nextToolSlot = 0;
     for await (const event of stream) {
       if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
         const t = event.delta.text || "";
         assistantText += t;
         opts.ctx.onText(t);
+      } else if (passthroughTools && event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+        const slot = nextToolSlot++;
+        blockIdxToToolSlot.set(event.index, slot);
+        opts.ctx.onModelToolCallChunk?.({
+          index: slot,
+          id: event.content_block.id,
+          name: event.content_block.name
+        });
+      } else if (passthroughTools && event.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
+        const slot = blockIdxToToolSlot.get(event.index);
+        if (slot !== void 0 && event.delta.partial_json) {
+          opts.ctx.onModelToolCallChunk?.({
+            index: slot,
+            argsDelta: event.delta.partial_json
+          });
+        }
       }
     }
     const finalMsg = await stream.finalMessage();
@@ -1756,6 +1654,7 @@ ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
     );
     const roundOutputTokens = approxTokens(assistantText) + (toolUses.length > 0 ? approxTokens(JSON.stringify(toolUses)) : 0);
     opts.ctx.onRoundComplete(roundInputTokens, roundOutputTokens);
+    if (passthroughTools) return;
     if (finalMsg.stop_reason !== "tool_use" || toolUses.length === 0) return;
     turns.push({ role: "assistant", content: finalMsg.content });
     const toolResults = [];
@@ -1777,23 +1676,65 @@ ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
   }
 }
 async function runGemini(opts) {
+  const passthroughTools = !!opts.userTools && opts.userTools.length > 0;
   let systemMessages = opts.messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-  if (opts.useTools) {
+  if (opts.useTools && !passthroughTools) {
     systemMessages = systemMessages ? `${systemMessages}
 
 ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
   }
-  const contents = opts.messages.filter((m) => m.role !== "system").map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }]
-  }));
-  for (let iter = 0; iter < MAX_TOOL_ITERATIONS + 1; iter++) {
+  const callIdToName = /* @__PURE__ */ new Map();
+  const contents = [];
+  let pendingFnResponses = [];
+  const flushFnResponses = () => {
+    if (pendingFnResponses.length > 0) {
+      contents.push({ role: "user", parts: pendingFnResponses });
+      pendingFnResponses = [];
+    }
+  };
+  for (const m of opts.messages) {
+    if (m.role === "system") continue;
+    if (m.role === "tool") {
+      const name = callIdToName.get(m.tool_call_id ?? "") ?? "tool";
+      pendingFnResponses.push({
+        functionResponse: { name, response: { content: m.content } }
+      });
+      continue;
+    }
+    flushFnResponses();
+    if (m.role === "assistant" && m.tool_calls && m.tool_calls.length > 0) {
+      const parts = [];
+      if (m.content) parts.push({ text: m.content });
+      for (const tc of m.tool_calls) {
+        let parsedArgs = {};
+        try {
+          parsedArgs = tc.arguments ? JSON.parse(tc.arguments) : {};
+        } catch {
+          parsedArgs = {};
+        }
+        parts.push({ functionCall: { name: tc.name, args: parsedArgs } });
+        callIdToName.set(tc.id, tc.name);
+      }
+      contents.push({ role: "model", parts });
+    } else {
+      contents.push({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }]
+      });
+    }
+  }
+  flushFnResponses();
+  const iterCap = passthroughTools ? 1 : MAX_TOOL_ITERATIONS + 1;
+  for (let iter = 0; iter < iterCap; iter++) {
     const config = {
       temperature: opts.temperature ?? 0.7,
       maxOutputTokens: opts.maxTokens ?? 4096
     };
     if (systemMessages) config.systemInstruction = systemMessages;
-    if (opts.useTools && iter < MAX_TOOL_ITERATIONS) {
+    if (passthroughTools) {
+      config.tools = opts.userTools;
+      if (opts.userToolChoice) config.toolConfig = opts.userToolChoice;
+    } else if (opts.useTools && iter < MAX_TOOL_ITERATIONS) {
       config.tools = [WEB_SEARCH_GEMINI_TOOL];
     }
     const roundInputTokens = approxTokens(systemMessages || "") + approxTokens(
@@ -1814,16 +1755,28 @@ ${TOOLS_SYSTEM_HINT}` : TOOLS_SYSTEM_HINT;
       const parts = chunk.candidates?.[0]?.content?.parts ?? [];
       for (const part of parts) {
         if (part.functionCall?.name) {
+          const args = part.functionCall.args || {};
+          const id = part.functionCall.id ?? `call_${randomBytes2(8).toString("hex")}`;
           functionCalls.push({
             name: part.functionCall.name,
-            args: part.functionCall.args || {},
-            id: part.functionCall.id
+            args,
+            id
           });
+          if (passthroughTools && opts.ctx.onModelToolCallChunk) {
+            const slot = functionCalls.length - 1;
+            opts.ctx.onModelToolCallChunk({
+              index: slot,
+              id,
+              name: part.functionCall.name,
+              argsDelta: JSON.stringify(args)
+            });
+          }
         }
       }
     }
     const roundOutputTokens = approxTokens(assistantText) + (functionCalls.length > 0 ? approxTokens(JSON.stringify(functionCalls)) : 0);
     opts.ctx.onRoundComplete(roundInputTokens, roundOutputTokens);
+    if (passthroughTools) return;
     if (functionCalls.length === 0) return;
     contents.push({
       role: "model",
@@ -2033,17 +1986,17 @@ function registerChatRoutes(app2) {
 import OpenAI2 from "openai";
 import Anthropic2 from "@anthropic-ai/sdk";
 import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
-import { randomBytes as randomBytes2 } from "node:crypto";
+import { randomBytes as randomBytes3 } from "node:crypto";
 var openai2 = new OpenAI2({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "unset",
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL
 });
 var anthropic2 = new Anthropic2({
-  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL
+  apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? "unset",
+  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ?? process.env.ANTHROPIC_BASE_URL
 });
 var gemini2 = new GoogleGenAI2({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "unset",
   httpOptions: {
     apiVersion: "",
     baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL
@@ -2364,7 +2317,7 @@ function registerApiRoutes(app2) {
     if (serialized.length > 1e6) {
       return res.status(413).json({ error: { message: "Conversation is too large to share" } });
     }
-    const slug = randomBytes2(9).toString("base64url");
+    const slug = randomBytes3(9).toString("base64url");
     await query(
       `INSERT INTO shared_chats (slug, user_id, title, model_id, snapshot)
        VALUES ($1, $2, $3, $4, $5::jsonb)`,
@@ -2448,6 +2401,1225 @@ function registerApiRoutes(app2) {
   });
 }
 
+// server/anthropicCompat.ts
+import { randomBytes as randomBytes4 } from "node:crypto";
+
+// server/compatTools.ts
+function openaiToAnthropicTools(tools) {
+  return (tools || []).filter((t) => t && t.type === "function" && t.function?.name).map((t) => ({
+    name: t.function.name,
+    description: t.function.description,
+    input_schema: t.function.parameters ?? { type: "object", properties: {} }
+  }));
+}
+function openaiToGeminiTools(tools) {
+  const decls = (tools || []).filter((t) => t && t.type === "function" && t.function?.name).map((t) => ({
+    name: t.function.name,
+    description: t.function.description,
+    parameters: t.function.parameters ?? { type: "object", properties: {} }
+  }));
+  return decls.length > 0 ? [{ functionDeclarations: decls }] : [];
+}
+function anthropicToOpenaiTools(tools) {
+  return (tools || []).filter((t) => t && t.name).map((t) => ({
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.input_schema ?? { type: "object", properties: {} }
+    }
+  }));
+}
+function anthropicToGeminiTools(tools) {
+  const decls = (tools || []).filter((t) => t && t.name).map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: t.input_schema ?? { type: "object", properties: {} }
+  }));
+  return decls.length > 0 ? [{ functionDeclarations: decls }] : [];
+}
+function openaiToAnthropicToolChoice(choice) {
+  if (choice == null) return void 0;
+  if (choice === "none") return { type: "none" };
+  if (choice === "auto") return { type: "auto" };
+  if (choice === "required") return { type: "any" };
+  if (typeof choice === "object" && choice.type === "function" && choice.function?.name) {
+    return { type: "tool", name: choice.function.name };
+  }
+  return void 0;
+}
+function openaiToGeminiToolChoice(choice) {
+  if (choice == null) return void 0;
+  if (choice === "none") return { functionCallingConfig: { mode: "NONE" } };
+  if (choice === "auto") return { functionCallingConfig: { mode: "AUTO" } };
+  if (choice === "required") return { functionCallingConfig: { mode: "ANY" } };
+  if (typeof choice === "object" && choice.type === "function" && choice.function?.name) {
+    return {
+      functionCallingConfig: {
+        mode: "ANY",
+        allowedFunctionNames: [choice.function.name]
+      }
+    };
+  }
+  return void 0;
+}
+function anthropicToOpenaiToolChoice(choice) {
+  if (!choice || typeof choice !== "object") return void 0;
+  if (choice.type === "none") return "none";
+  if (choice.type === "auto") return "auto";
+  if (choice.type === "any") return "required";
+  if (choice.type === "tool" && choice.name) {
+    return { type: "function", function: { name: choice.name } };
+  }
+  return void 0;
+}
+function anthropicToGeminiToolChoice(choice) {
+  if (!choice || typeof choice !== "object") return void 0;
+  if (choice.type === "none") return { functionCallingConfig: { mode: "NONE" } };
+  if (choice.type === "auto") return { functionCallingConfig: { mode: "AUTO" } };
+  if (choice.type === "any") return { functionCallingConfig: { mode: "ANY" } };
+  if (choice.type === "tool" && choice.name) {
+    return {
+      functionCallingConfig: {
+        mode: "ANY",
+        allowedFunctionNames: [choice.name]
+      }
+    };
+  }
+  return void 0;
+}
+function flattenOpenAIContent(content) {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.map((p) => {
+    if (typeof p === "string") return p;
+    if (p && typeof p === "object") {
+      if (p.type === "text" && typeof p.text === "string") return p.text;
+    }
+    return "";
+  }).filter(Boolean).join("\n");
+}
+function openaiCompatMessagesToChat(messages) {
+  const out = [];
+  for (const m of messages) {
+    if (!m || !m.role) continue;
+    const role = m.role === "developer" ? "system" : m.role;
+    const text = flattenOpenAIContent(m.content);
+    const msg = { role, content: text };
+    if (role === "assistant" && m.tool_calls && m.tool_calls.length > 0) {
+      msg.tool_calls = m.tool_calls.filter((tc) => tc && tc.function?.name).map((tc) => ({
+        id: tc.id,
+        name: tc.function.name,
+        arguments: tc.function.arguments ?? ""
+      }));
+    }
+    if (role === "tool" && m.tool_call_id) {
+      msg.tool_call_id = m.tool_call_id;
+    }
+    out.push(msg);
+  }
+  return out;
+}
+function flattenAnthropicTextContent(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content.map((b) => {
+    if (b && typeof b === "object" && b.type === "text" && typeof b.text === "string") {
+      return b.text;
+    }
+    return "";
+  }).filter(Boolean).join("\n");
+}
+function anthropicCompatMessagesToChat(system, messages) {
+  const out = [];
+  const sysText = system == null ? "" : typeof system === "string" ? system : flattenAnthropicTextContent(system);
+  if (sysText) out.push({ role: "system", content: sysText });
+  for (const m of messages) {
+    if (!m || m.role !== "user" && m.role !== "assistant") continue;
+    const blocks = Array.isArray(m.content) ? m.content : [{ type: "text", text: m.content }];
+    if (m.role === "assistant") {
+      let text = "";
+      const toolCalls = [];
+      for (const b of blocks) {
+        if (!b || typeof b !== "object") continue;
+        if (b.type === "text" && typeof b.text === "string") {
+          text += (text ? "\n" : "") + b.text;
+        } else if (b.type === "tool_use") {
+          toolCalls.push({
+            id: b.id ?? "",
+            name: b.name ?? "",
+            arguments: b.input == null ? "{}" : typeof b.input === "string" ? b.input : JSON.stringify(b.input)
+          });
+        }
+      }
+      const msg = { role: "assistant", content: text };
+      if (toolCalls.length > 0) msg.tool_calls = toolCalls;
+      out.push(msg);
+      continue;
+    }
+    let userText = "";
+    const toolResults = [];
+    for (const b of blocks) {
+      if (!b || typeof b !== "object") continue;
+      if (b.type === "text" && typeof b.text === "string") {
+        userText += (userText ? "\n" : "") + b.text;
+      } else if (b.type === "tool_result") {
+        const id = b.tool_use_id ?? "";
+        const c = b.content;
+        let text = "";
+        if (typeof c === "string") {
+          text = c;
+        } else if (Array.isArray(c)) {
+          text = flattenAnthropicTextContent(c);
+        }
+        toolResults.push({ id, text });
+      }
+    }
+    for (const r of toolResults) {
+      out.push({ role: "tool", content: r.text, tool_call_id: r.id });
+    }
+    if (userText) out.push({ role: "user", content: userText });
+  }
+  return out;
+}
+
+// server/anthropicCompat.ts
+function resolveCatalogId(modelParam) {
+  if (models.find((m) => m.id === modelParam)) return modelParam;
+  const dotted = modelParam.replace(
+    /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
+    "$1$2.$3$4"
+  );
+  if (models.find((m) => m.id === dotted)) return dotted;
+  const undated = modelParam.replace(/-(\d{8})$/, "");
+  if (undated !== modelParam) {
+    const undatedDotted = undated.replace(
+      /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
+      "$1$2.$3$4"
+    );
+    if (models.find((m) => m.id === undatedDotted)) return undatedDotted;
+  }
+  return null;
+}
+function newMessageId() {
+  return `msg_${randomBytes4(12).toString("base64url")}`;
+}
+function registerAnthropicCompatRoutes(app2) {
+  const handler = async (req, res) => {
+    const body = req.body || {};
+    if (!body.model || typeof body.model !== "string") {
+      return res.status(400).json({
+        type: "error",
+        error: { type: "invalid_request_error", message: "'model' is required" }
+      });
+    }
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return res.status(400).json({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "'messages' must be a non-empty array"
+        }
+      });
+    }
+    if (body.messages.length > MAX_MESSAGES_PER_REQUEST) {
+      return res.status(400).json({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: `Too many messages (max ${MAX_MESSAGES_PER_REQUEST}).`
+        }
+      });
+    }
+    if (typeof body.max_tokens !== "number" || body.max_tokens <= 0) {
+      return res.status(400).json({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "'max_tokens' is required and must be a positive number"
+        }
+      });
+    }
+    const catalogId = resolveCatalogId(body.model);
+    if (!catalogId) {
+      return res.status(400).json({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: `Unsupported model: ${body.model}`
+        }
+      });
+    }
+    const catalogEntry = models.find((m) => m.id === catalogId);
+    if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap)) {
+      return res.status(400).json({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: `Unsupported model: ${body.model}`
+        }
+      });
+    }
+    const effectiveMaxTokens = Math.max(
+      1,
+      Math.min(Math.floor(body.max_tokens), MAX_OUTPUT_TOKENS_HARD_CAP)
+    );
+    const messages = anthropicCompatMessagesToChat(
+      body.system,
+      body.messages
+    );
+    if (messages.length === 0) {
+      return res.status(400).json({
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "'messages' had no usable content"
+        }
+      });
+    }
+    const userAnthropicTools = Array.isArray(body.tools) && body.tools.length > 0 ? body.tools : void 0;
+    const userAnthropicToolChoice = body.tool_choice;
+    if (userAnthropicTools) {
+      for (const t of userAnthropicTools) {
+        if (!t || !t.name) {
+          return res.status(400).json({
+            type: "error",
+            error: {
+              type: "invalid_request_error",
+              message: "Each tool must include a 'name'"
+            }
+          });
+        }
+      }
+    }
+    const userId = req.auth.user.id;
+    const apiKeyId = req.auth.apiKeyId ?? null;
+    const inputTokensEstimate = approxTokens(
+      messages.map((m) => m.content ?? "").join("\n")
+    );
+    const worstCaseCostUsd = inputTokensEstimate / 1e6 * catalogEntry.inputPrice + effectiveMaxTokens / 1e6 * catalogEntry.outputPrice;
+    const reservationCents = Math.max(1, Math.ceil(worstCaseCostUsd * 100));
+    const reserved = await reserveCredits(userId, reservationCents);
+    if (reserved === null) {
+      return res.status(402).json({
+        type: "error",
+        error: {
+          type: "billing_error",
+          message: "Insufficient credits. Add more credits to continue using the API."
+        }
+      });
+    }
+    const wantStream = body.stream === true;
+    const messageId = newMessageId();
+    const startTime = Date.now();
+    let firstTokenMs = 0;
+    let outputText = "";
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const toolCallsByIndex = [];
+    let sawAnyToolCall = false;
+    const accumulateToolCallChunk = (chunk) => {
+      sawAnyToolCall = true;
+      const slot = chunk.index;
+      if (!toolCallsByIndex[slot]) {
+        toolCallsByIndex[slot] = { id: "", name: "", arguments: "" };
+      }
+      if (chunk.id) toolCallsByIndex[slot].id = chunk.id;
+      if (chunk.name) toolCallsByIndex[slot].name = chunk.name;
+      if (chunk.argsDelta) toolCallsByIndex[slot].arguments += chunk.argsDelta;
+    };
+    if (wantStream) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+      const sendEvent = (event, data) => {
+        res.write(`event: ${event}
+`);
+        res.write(`data: ${JSON.stringify(data)}
+
+`);
+      };
+      sendEvent("message_start", {
+        type: "message_start",
+        message: {
+          id: messageId,
+          type: "message",
+          role: "assistant",
+          content: [],
+          model: body.model,
+          stop_reason: null,
+          stop_sequence: null,
+          usage: { input_tokens: inputTokensEstimate, output_tokens: 0 }
+        }
+      });
+      let nextBlockIndex = 0;
+      let openTextBlockIndex = null;
+      const slotToBlockIndex = /* @__PURE__ */ new Map();
+      const openBlockIndices = /* @__PURE__ */ new Set();
+      const closeBlock = (idx) => {
+        sendEvent("content_block_stop", {
+          type: "content_block_stop",
+          index: idx
+        });
+        openBlockIndices.delete(idx);
+      };
+      const closeOpenTextBlock = () => {
+        if (openTextBlockIndex !== null) {
+          closeBlock(openTextBlockIndex);
+          openTextBlockIndex = null;
+        }
+      };
+      const ctx2 = {
+        onText(delta) {
+          if (!delta) return;
+          if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+          outputText += delta;
+          if (openTextBlockIndex === null) {
+            openTextBlockIndex = nextBlockIndex++;
+            openBlockIndices.add(openTextBlockIndex);
+            sendEvent("content_block_start", {
+              type: "content_block_start",
+              index: openTextBlockIndex,
+              content_block: { type: "text", text: "" }
+            });
+          }
+          sendEvent("content_block_delta", {
+            type: "content_block_delta",
+            index: openTextBlockIndex,
+            delta: { type: "text_delta", text: delta }
+          });
+        },
+        onToolStart() {
+        },
+        onToolEnd() {
+        },
+        onToolError() {
+        },
+        onRoundComplete(inT, outT) {
+          totalInputTokens += inT;
+          totalOutputTokens += outT;
+        },
+        onModelToolCallChunk(chunk) {
+          if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+          accumulateToolCallChunk(chunk);
+          let blockIdx = slotToBlockIndex.get(chunk.index);
+          if (blockIdx === void 0) {
+            closeOpenTextBlock();
+            blockIdx = nextBlockIndex++;
+            slotToBlockIndex.set(chunk.index, blockIdx);
+            openBlockIndices.add(blockIdx);
+            sendEvent("content_block_start", {
+              type: "content_block_start",
+              index: blockIdx,
+              content_block: {
+                type: "tool_use",
+                id: chunk.id ?? toolCallsByIndex[chunk.index]?.id ?? "",
+                name: chunk.name ?? toolCallsByIndex[chunk.index]?.name ?? "",
+                input: {}
+              }
+            });
+          }
+          if (chunk.argsDelta) {
+            sendEvent("content_block_delta", {
+              type: "content_block_delta",
+              index: blockIdx,
+              delta: {
+                type: "input_json_delta",
+                partial_json: chunk.argsDelta
+              }
+            });
+          }
+        }
+      };
+      let success2 = false;
+      let errorMessage2 = "";
+      let stopReason2 = "end_turn";
+      try {
+        await dispatchToRunner({
+          catalogId,
+          messages,
+          temperature: body.temperature,
+          maxTokens: effectiveMaxTokens,
+          ctx: ctx2,
+          userAnthropicTools,
+          userAnthropicToolChoice
+        });
+        success2 = true;
+        if (sawAnyToolCall) stopReason2 = "tool_use";
+        else if (totalOutputTokens >= effectiveMaxTokens) stopReason2 = "max_tokens";
+      } catch (err) {
+        errorMessage2 = err instanceof Error ? err.message : "Request failed";
+        stopReason2 = "error";
+        console.error("Anthropic-compat error:", err);
+      }
+      if (totalInputTokens === 0) totalInputTokens = inputTokensEstimate;
+      if (totalOutputTokens === 0) totalOutputTokens = approxTokens(outputText);
+      const actualCostUsd2 = totalInputTokens / 1e6 * catalogEntry.inputPrice + totalOutputTokens / 1e6 * catalogEntry.outputPrice;
+      const actualCostCents2 = Math.min(
+        reservationCents,
+        Math.max(0, Math.ceil(actualCostUsd2 * 100))
+      );
+      const refundCents2 = reservationCents - actualCostCents2;
+      if (refundCents2 > 0) await refundCredits(userId, refundCents2);
+      if (actualCostCents2 > 0) {
+        void recordCreditAudit(
+          userId,
+          actualCostCents2,
+          `${catalogId} (anthropic-compat) \u2014 ${totalInputTokens} in / ${totalOutputTokens} out`
+        );
+      }
+      for (const idx of Array.from(openBlockIndices).sort((a, b) => a - b)) {
+        sendEvent("content_block_stop", {
+          type: "content_block_stop",
+          index: idx
+        });
+      }
+      openBlockIndices.clear();
+      if (!success2) {
+        sendEvent("error", {
+          type: "error",
+          error: { type: "api_error", message: errorMessage2 }
+        });
+      }
+      sendEvent("message_delta", {
+        type: "message_delta",
+        delta: { stop_reason: stopReason2, stop_sequence: null },
+        usage: { output_tokens: totalOutputTokens }
+      });
+      sendEvent("message_stop", { type: "message_stop" });
+      res.end();
+      void recordUsage({
+        userId,
+        apiKeyId,
+        kind: "chat",
+        modelId: catalogId,
+        provider: catalogEntry.provider ?? providerForModel(catalogId),
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        costUsd: actualCostCents2 / 100,
+        latencyMs: firstTokenMs || null,
+        totalMs: Date.now() - startTime,
+        success: success2
+      });
+      return;
+    }
+    const ctx = {
+      onText(delta) {
+        if (!delta) return;
+        if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+        outputText += delta;
+      },
+      onToolStart() {
+      },
+      onToolEnd() {
+      },
+      onToolError() {
+      },
+      onRoundComplete(inT, outT) {
+        totalInputTokens += inT;
+        totalOutputTokens += outT;
+      },
+      onModelToolCallChunk(chunk) {
+        if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+        accumulateToolCallChunk(chunk);
+      }
+    };
+    let success = false;
+    let errorMessage = "";
+    try {
+      await dispatchToRunner({
+        catalogId,
+        messages,
+        temperature: body.temperature,
+        maxTokens: effectiveMaxTokens,
+        ctx,
+        userAnthropicTools,
+        userAnthropicToolChoice
+      });
+      success = true;
+    } catch (err) {
+      errorMessage = err instanceof Error ? err.message : "Request failed";
+      console.error("Anthropic-compat error:", err);
+    }
+    if (totalInputTokens === 0) totalInputTokens = inputTokensEstimate;
+    if (totalOutputTokens === 0) totalOutputTokens = approxTokens(outputText);
+    const actualCostUsd = totalInputTokens / 1e6 * catalogEntry.inputPrice + totalOutputTokens / 1e6 * catalogEntry.outputPrice;
+    const actualCostCents = Math.min(
+      reservationCents,
+      Math.max(0, Math.ceil(actualCostUsd * 100))
+    );
+    const refundCents = reservationCents - actualCostCents;
+    if (refundCents > 0) await refundCredits(userId, refundCents);
+    if (actualCostCents > 0) {
+      void recordCreditAudit(
+        userId,
+        actualCostCents,
+        `${catalogId} (anthropic-compat) \u2014 ${totalInputTokens} in / ${totalOutputTokens} out`
+      );
+    }
+    void recordUsage({
+      userId,
+      apiKeyId,
+      kind: "chat",
+      modelId: catalogId,
+      provider: catalogEntry.provider ?? providerForModel(catalogId),
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      costUsd: actualCostCents / 100,
+      latencyMs: firstTokenMs || null,
+      totalMs: Date.now() - startTime,
+      success
+    });
+    if (!success) {
+      return res.status(500).json({
+        type: "error",
+        error: { type: "api_error", message: errorMessage }
+      });
+    }
+    const content = [];
+    if (outputText) content.push({ type: "text", text: outputText });
+    if (sawAnyToolCall) {
+      for (const t of toolCallsByIndex) {
+        if (!t || !t.name) continue;
+        let parsedInput = {};
+        try {
+          parsedInput = t.arguments ? JSON.parse(t.arguments) : {};
+        } catch {
+          parsedInput = {};
+        }
+        content.push({
+          type: "tool_use",
+          id: t.id,
+          name: t.name,
+          input: parsedInput
+        });
+      }
+    }
+    const stopReason = sawAnyToolCall ? "tool_use" : totalOutputTokens >= effectiveMaxTokens ? "max_tokens" : "end_turn";
+    return res.json({
+      id: messageId,
+      type: "message",
+      role: "assistant",
+      content: content.length > 0 ? content : [{ type: "text", text: "" }],
+      model: body.model,
+      stop_reason: stopReason,
+      stop_sequence: null,
+      usage: {
+        input_tokens: totalInputTokens,
+        output_tokens: totalOutputTokens
+      }
+    });
+  };
+  app2.post("/api/v1/messages", requireApiKeyAnthropic, handler);
+  app2.post("/v1/messages", requireApiKeyAnthropic, handler);
+}
+async function dispatchToRunner(args) {
+  const {
+    catalogId,
+    messages,
+    temperature,
+    maxTokens,
+    ctx,
+    userAnthropicTools,
+    userAnthropicToolChoice
+  } = args;
+  if (catalogId in anthropicMap) {
+    await runAnthropic({
+      model: anthropicMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userAnthropicTools ? {
+        userTools: userAnthropicTools,
+        userToolChoice: userAnthropicToolChoice
+      } : {}
+    });
+  } else if (catalogId in openAIMap) {
+    await runOpenAI({
+      model: openAIMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userAnthropicTools ? {
+        userTools: anthropicToOpenaiTools(userAnthropicTools),
+        userToolChoice: anthropicToOpenaiToolChoice(userAnthropicToolChoice)
+      } : {}
+    });
+  } else {
+    await runGemini({
+      model: geminiMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userAnthropicTools ? {
+        userTools: anthropicToGeminiTools(userAnthropicTools),
+        userToolChoice: anthropicToGeminiToolChoice(userAnthropicToolChoice)
+      } : {}
+    });
+  }
+}
+
+// server/openaiCompat.ts
+import { randomBytes as randomBytes5 } from "node:crypto";
+function resolveCatalogId2(modelParam) {
+  if (models.find((m) => m.id === modelParam)) return modelParam;
+  const dotted = modelParam.replace(
+    /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
+    "$1$2.$3$4"
+  );
+  if (models.find((m) => m.id === dotted)) return dotted;
+  const undated = modelParam.replace(/-(\d{8})$/, "");
+  if (undated !== modelParam) {
+    const undatedDotted = undated.replace(
+      /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
+      "$1$2.$3$4"
+    );
+    if (models.find((m) => m.id === undatedDotted)) return undatedDotted;
+  }
+  return null;
+}
+function newCompletionId() {
+  return `chatcmpl-${randomBytes5(12).toString("base64url")}`;
+}
+function registerOpenAICompatRoutes(app2) {
+  const handler = async (req, res) => {
+    const body = req.body || {};
+    if (!body.model || typeof body.model !== "string") {
+      return res.status(400).json({
+        error: {
+          message: "'model' is required",
+          type: "invalid_request_error",
+          param: "model",
+          code: null
+        }
+      });
+    }
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return res.status(400).json({
+        error: {
+          message: "'messages' must be a non-empty array",
+          type: "invalid_request_error",
+          param: "messages",
+          code: null
+        }
+      });
+    }
+    if (body.messages.length > MAX_MESSAGES_PER_REQUEST) {
+      return res.status(400).json({
+        error: {
+          message: `Too many messages (max ${MAX_MESSAGES_PER_REQUEST}).`,
+          type: "invalid_request_error",
+          param: "messages",
+          code: null
+        }
+      });
+    }
+    const catalogId = resolveCatalogId2(body.model);
+    if (!catalogId) {
+      return res.status(400).json({
+        error: {
+          message: `Unsupported model: ${body.model}`,
+          type: "invalid_request_error",
+          param: "model",
+          code: "model_not_found"
+        }
+      });
+    }
+    const catalogEntry = models.find((m) => m.id === catalogId);
+    if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap)) {
+      return res.status(400).json({
+        error: {
+          message: `Unsupported model: ${body.model}`,
+          type: "invalid_request_error",
+          param: "model",
+          code: "model_not_found"
+        }
+      });
+    }
+    const requestedMax = typeof body.max_completion_tokens === "number" ? body.max_completion_tokens : typeof body.max_tokens === "number" ? body.max_tokens : 4096;
+    const effectiveMaxTokens = Math.max(
+      1,
+      Math.min(
+        Number.isFinite(requestedMax) && requestedMax > 0 ? Math.floor(requestedMax) : 4096,
+        MAX_OUTPUT_TOKENS_HARD_CAP
+      )
+    );
+    const messages = openaiCompatMessagesToChat(body.messages);
+    if (messages.length === 0) {
+      return res.status(400).json({
+        error: {
+          message: "'messages' had no usable content",
+          type: "invalid_request_error",
+          param: "messages",
+          code: null
+        }
+      });
+    }
+    const userOpenaiTools = Array.isArray(body.tools) && body.tools.length > 0 ? body.tools : void 0;
+    const userOpenaiToolChoice = body.tool_choice;
+    if (userOpenaiTools) {
+      for (const t of userOpenaiTools) {
+        if (!t || t.type !== "function" || !t.function?.name) {
+          return res.status(400).json({
+            error: {
+              message: "Each tool must be of type 'function' with a function.name",
+              type: "invalid_request_error",
+              param: "tools",
+              code: null
+            }
+          });
+        }
+      }
+    }
+    const userId = req.auth.user.id;
+    const apiKeyId = req.auth.apiKeyId ?? null;
+    const inputTokensEstimate = approxTokens(
+      messages.map((m) => m.content ?? "").join("\n")
+    );
+    const worstCaseCostUsd = inputTokensEstimate / 1e6 * catalogEntry.inputPrice + effectiveMaxTokens / 1e6 * catalogEntry.outputPrice;
+    const reservationCents = Math.max(1, Math.ceil(worstCaseCostUsd * 100));
+    const reserved = await reserveCredits(userId, reservationCents);
+    if (reserved === null) {
+      return res.status(402).json({
+        error: {
+          message: "Insufficient credits. Add more credits to continue using the API.",
+          type: "insufficient_quota",
+          param: null,
+          code: "insufficient_quota"
+        }
+      });
+    }
+    const wantStream = body.stream === true;
+    const completionId = newCompletionId();
+    const created = Math.floor(Date.now() / 1e3);
+    const startTime = Date.now();
+    let firstTokenMs = 0;
+    let outputText = "";
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const toolCallsByIndex = [];
+    let sawAnyToolCall = false;
+    const accumulateToolCallChunk = (chunk) => {
+      sawAnyToolCall = true;
+      const slot = chunk.index;
+      if (!toolCallsByIndex[slot]) {
+        toolCallsByIndex[slot] = { id: "", name: "", arguments: "" };
+      }
+      if (chunk.id) toolCallsByIndex[slot].id = chunk.id;
+      if (chunk.name) toolCallsByIndex[slot].name = chunk.name;
+      if (chunk.argsDelta) toolCallsByIndex[slot].arguments += chunk.argsDelta;
+    };
+    if (wantStream) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+      const sendChunk = (chunk) => {
+        res.write(`data: ${JSON.stringify(chunk)}
+
+`);
+      };
+      sendChunk({
+        id: completionId,
+        object: "chat.completion.chunk",
+        created,
+        model: body.model,
+        choices: [
+          { index: 0, delta: { role: "assistant" }, finish_reason: null }
+        ]
+      });
+      const ctx2 = {
+        onText(delta) {
+          if (!delta) return;
+          if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+          outputText += delta;
+          sendChunk({
+            id: completionId,
+            object: "chat.completion.chunk",
+            created,
+            model: body.model,
+            choices: [
+              { index: 0, delta: { content: delta }, finish_reason: null }
+            ]
+          });
+        },
+        onToolStart() {
+        },
+        onToolEnd() {
+        },
+        onToolError() {
+        },
+        onRoundComplete(inT, outT) {
+          totalInputTokens += inT;
+          totalOutputTokens += outT;
+        },
+        onModelToolCallChunk(chunk) {
+          if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+          accumulateToolCallChunk(chunk);
+          const deltaToolCall = { index: chunk.index };
+          if (chunk.id) {
+            deltaToolCall.id = chunk.id;
+            deltaToolCall.type = "function";
+          }
+          if (chunk.name || chunk.argsDelta) {
+            deltaToolCall.function = {};
+            if (chunk.name) deltaToolCall.function.name = chunk.name;
+            if (chunk.argsDelta) deltaToolCall.function.arguments = chunk.argsDelta;
+          }
+          sendChunk({
+            id: completionId,
+            object: "chat.completion.chunk",
+            created,
+            model: body.model,
+            choices: [
+              {
+                index: 0,
+                delta: { tool_calls: [deltaToolCall] },
+                finish_reason: null
+              }
+            ]
+          });
+        }
+      };
+      let success2 = false;
+      let errorMessage2 = "";
+      try {
+        await dispatchToRunner2({
+          catalogId,
+          messages,
+          temperature: body.temperature,
+          maxTokens: effectiveMaxTokens,
+          reasoningLevel: body.reasoning_effort,
+          ctx: ctx2,
+          userOpenaiTools,
+          userOpenaiToolChoice
+        });
+        success2 = true;
+      } catch (err) {
+        errorMessage2 = err instanceof Error ? err.message : "Request failed";
+        console.error("OpenAI-compat error:", err);
+      }
+      if (totalInputTokens === 0) totalInputTokens = inputTokensEstimate;
+      if (totalOutputTokens === 0) totalOutputTokens = approxTokens(outputText);
+      const actualCostUsd2 = totalInputTokens / 1e6 * catalogEntry.inputPrice + totalOutputTokens / 1e6 * catalogEntry.outputPrice;
+      const actualCostCents2 = Math.min(
+        reservationCents,
+        Math.max(0, Math.ceil(actualCostUsd2 * 100))
+      );
+      const refundCents2 = reservationCents - actualCostCents2;
+      if (refundCents2 > 0) await refundCredits(userId, refundCents2);
+      if (actualCostCents2 > 0) {
+        void recordCreditAudit(
+          userId,
+          actualCostCents2,
+          `${catalogId} (openai-compat) \u2014 ${totalInputTokens} in / ${totalOutputTokens} out`
+        );
+      }
+      const finishReason2 = sawAnyToolCall ? "tool_calls" : totalOutputTokens >= effectiveMaxTokens ? "length" : "stop";
+      sendChunk({
+        id: completionId,
+        object: "chat.completion.chunk",
+        created,
+        model: body.model,
+        choices: [{ index: 0, delta: {}, finish_reason: finishReason2 }],
+        usage: {
+          prompt_tokens: totalInputTokens,
+          completion_tokens: totalOutputTokens,
+          total_tokens: totalInputTokens + totalOutputTokens
+        }
+      });
+      if (!success2) {
+        res.write(
+          `data: ${JSON.stringify({
+            error: {
+              message: errorMessage2,
+              type: "api_error",
+              param: null,
+              code: null
+            }
+          })}
+
+`
+        );
+      }
+      res.write("data: [DONE]\n\n");
+      res.end();
+      void recordUsage({
+        userId,
+        apiKeyId,
+        kind: "chat",
+        modelId: catalogId,
+        provider: catalogEntry.provider ?? providerForModel(catalogId),
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        costUsd: actualCostCents2 / 100,
+        latencyMs: firstTokenMs || null,
+        totalMs: Date.now() - startTime,
+        success: success2
+      });
+      return;
+    }
+    const ctx = {
+      onText(delta) {
+        if (!delta) return;
+        if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+        outputText += delta;
+      },
+      onToolStart() {
+      },
+      onToolEnd() {
+      },
+      onToolError() {
+      },
+      onRoundComplete(inT, outT) {
+        totalInputTokens += inT;
+        totalOutputTokens += outT;
+      },
+      onModelToolCallChunk(chunk) {
+        if (!firstTokenMs) firstTokenMs = Date.now() - startTime;
+        accumulateToolCallChunk(chunk);
+      }
+    };
+    let success = false;
+    let errorMessage = "";
+    try {
+      await dispatchToRunner2({
+        catalogId,
+        messages,
+        temperature: body.temperature,
+        maxTokens: effectiveMaxTokens,
+        reasoningLevel: body.reasoning_effort,
+        ctx,
+        userOpenaiTools,
+        userOpenaiToolChoice
+      });
+      success = true;
+    } catch (err) {
+      errorMessage = err instanceof Error ? err.message : "Request failed";
+      console.error("OpenAI-compat error:", err);
+    }
+    if (totalInputTokens === 0) totalInputTokens = inputTokensEstimate;
+    if (totalOutputTokens === 0) totalOutputTokens = approxTokens(outputText);
+    const actualCostUsd = totalInputTokens / 1e6 * catalogEntry.inputPrice + totalOutputTokens / 1e6 * catalogEntry.outputPrice;
+    const actualCostCents = Math.min(
+      reservationCents,
+      Math.max(0, Math.ceil(actualCostUsd * 100))
+    );
+    const refundCents = reservationCents - actualCostCents;
+    if (refundCents > 0) await refundCredits(userId, refundCents);
+    if (actualCostCents > 0) {
+      void recordCreditAudit(
+        userId,
+        actualCostCents,
+        `${catalogId} (openai-compat) \u2014 ${totalInputTokens} in / ${totalOutputTokens} out`
+      );
+    }
+    void recordUsage({
+      userId,
+      apiKeyId,
+      kind: "chat",
+      modelId: catalogId,
+      provider: catalogEntry.provider ?? providerForModel(catalogId),
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      costUsd: actualCostCents / 100,
+      latencyMs: firstTokenMs || null,
+      totalMs: Date.now() - startTime,
+      success
+    });
+    if (!success) {
+      return res.status(500).json({
+        error: {
+          message: errorMessage,
+          type: "api_error",
+          param: null,
+          code: null
+        }
+      });
+    }
+    const finishReason = sawAnyToolCall ? "tool_calls" : totalOutputTokens >= effectiveMaxTokens ? "length" : "stop";
+    const message = {
+      role: "assistant",
+      content: sawAnyToolCall && !outputText ? null : outputText
+    };
+    if (sawAnyToolCall) {
+      message.tool_calls = toolCallsByIndex.filter((t) => t && t.name).map((t) => ({
+        id: t.id,
+        type: "function",
+        function: { name: t.name, arguments: t.arguments }
+      }));
+    }
+    return res.json({
+      id: completionId,
+      object: "chat.completion",
+      created,
+      model: body.model,
+      choices: [
+        {
+          index: 0,
+          message,
+          finish_reason: finishReason
+        }
+      ],
+      usage: {
+        prompt_tokens: totalInputTokens,
+        completion_tokens: totalOutputTokens,
+        total_tokens: totalInputTokens + totalOutputTokens
+      }
+    });
+  };
+  app2.post("/api/v1/chat/completions", requireApiKey, handler);
+  app2.post("/v1/chat/completions", requireApiKey, handler);
+  app2.post("/api/chat/completions", requireApiKey, handler);
+}
+async function dispatchToRunner2(args) {
+  const {
+    catalogId,
+    messages,
+    temperature,
+    maxTokens,
+    reasoningLevel,
+    ctx,
+    userOpenaiTools,
+    userOpenaiToolChoice
+  } = args;
+  if (catalogId in openAIMap) {
+    await runOpenAI({
+      model: openAIMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      reasoningLevel,
+      ctx,
+      ...userOpenaiTools ? { userTools: userOpenaiTools, userToolChoice: userOpenaiToolChoice } : {}
+    });
+  } else if (catalogId in anthropicMap) {
+    await runAnthropic({
+      model: anthropicMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userOpenaiTools ? {
+        userTools: openaiToAnthropicTools(userOpenaiTools),
+        userToolChoice: openaiToAnthropicToolChoice(userOpenaiToolChoice)
+      } : {}
+    });
+  } else {
+    await runGemini({
+      model: geminiMap[catalogId],
+      messages,
+      temperature,
+      maxTokens,
+      useTools: false,
+      ctx,
+      ...userOpenaiTools ? {
+        userTools: openaiToGeminiTools(userOpenaiTools),
+        userToolChoice: openaiToGeminiToolChoice(userOpenaiToolChoice)
+      } : {}
+    });
+  }
+}
+
+// server/authRoutes.ts
+import { UAParser } from "ua-parser-js";
+function registerAuthRoutes(app2) {
+  app2.get("/api/auth/user", requireAuth, async (req, res) => {
+    try {
+      const user = await authStorage.getUser(req.auth.user.id);
+      res.json(user ?? req.auth.user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  app2.get("/api/auth/preferences", requireAuth, async (req, res) => {
+    try {
+      const preferences = await authStorage.getPreferences(req.auth.user.id);
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching preferences:", error);
+      res.status(500).json({ message: "Failed to fetch preferences" });
+    }
+  });
+  app2.put("/api/auth/preferences", requireAuth, async (req, res) => {
+    try {
+      const updates = req.body;
+      if (updates.theme !== void 0 && !["light", "dark", "system"].includes(updates.theme)) {
+        return res.status(400).json({ message: "Invalid theme value" });
+      }
+      if (updates.usageAlertThresholdCents !== void 0 && (typeof updates.usageAlertThresholdCents !== "number" || updates.usageAlertThresholdCents < 0)) {
+        return res.status(400).json({ message: "Invalid usage alert threshold" });
+      }
+      const preferences = await authStorage.updatePreferences(
+        req.auth.user.id,
+        updates
+      );
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+  app2.get("/api/auth/sessions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.auth.user.id;
+      const result = await query(
+        `SELECT id, "expiresAt", "createdAt", "updatedAt", "ipAddress", "userAgent"
+           FROM neon_auth.session
+          WHERE "userId" = $1::uuid
+            AND "expiresAt" > NOW()
+          ORDER BY "updatedAt" DESC`,
+        [userId]
+      );
+      const reqUA = req.get("user-agent") || null;
+      const data = result.rows.map((r) => ({
+        id: `${r.id.slice(0, 8)}\u2026`,
+        // Best-effort "current device" guess: newest session using the same
+        // user agent as this request (JWTs carry no session id).
+        current: r.userAgent !== null && r.userAgent === reqUA,
+        device: r.userAgent ? describeUA(r.userAgent).device : "Unknown device",
+        browser: r.userAgent ? describeUA(r.userAgent).browser : null,
+        os: r.userAgent ? describeUA(r.userAgent).os : null,
+        ip: r.ipAddress,
+        lastSeenAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null,
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
+        expiresAt: new Date(r.expiresAt).toISOString()
+      }));
+      res.json({ data });
+    } catch (err) {
+      console.error("list sessions failed:", err);
+      res.status(500).json({ message: "Failed to load sessions" });
+    }
+  });
+  app2.post("/api/auth/sessions/revoke-others", requireAuth, async (_req, res) => {
+    res.status(501).json({
+      message: "Revoking other sessions is managed by Neon Auth and is not available through the API yet."
+    });
+  });
+}
+function describeUA(ua) {
+  const parsed = new UAParser(ua).getResult();
+  const browser = parsed.browser.name || null;
+  const os = parsed.os.name ? `${parsed.os.name}${parsed.os.version ? ` ${parsed.os.version}` : ""}` : null;
+  if (browser && os) return { device: `${browser} on ${os}`, browser, os };
+  if (browser) return { device: browser, browser, os: null };
+  if (os) return { device: os, browser: null, os };
+  return { device: "Unknown device", browser: null, os: null };
+}
+
 // server/index.ts
 var app = express();
 app.use(express.json({ limit: "10mb" }));
@@ -2455,16 +3627,11 @@ var isProduction = process.env.NODE_ENV === "production";
 var PORT = Number(process.env.PORT) || 5e3;
 async function start() {
   await ensureSchema();
-  await purgeExpiredSessions();
-  setInterval(() => {
-    void purgeExpiredSessions();
-  }, 6 * 60 * 60 * 1e3).unref?.();
-  await setupAuth(app);
-  app.use(trackSessionActivity);
   registerAuthRoutes(app);
-  registerSessionRoutes(app);
   registerKeyRoutes(app);
   registerChatRoutes(app);
+  registerAnthropicCompatRoutes(app);
+  registerOpenAICompatRoutes(app);
   registerApiRoutes(app);
   if (!isProduction) {
     const vite = await createViteServer({
