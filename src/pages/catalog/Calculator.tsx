@@ -60,15 +60,15 @@ export default function Calculator() {
   const cheapest = rows[0];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:py-20">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
       <p className="eyebrow">Cost calculator</p>
-      <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">What will it actually cost?</h1>
+      <h1 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-5xl">What will it actually cost?</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
         Enter your monthly token volume and see every priced model ranked by list cost. The spread between tiers is
         usually an order of magnitude, not a rounding error.
       </p>
 
-      <div className="panel mt-10 p-6">
+      <div className="panel mt-8 p-4 sm:mt-10 sm:p-6">
         <div className="grid gap-5 sm:grid-cols-2">
           <TokenField label="Input tokens · per month" value={inputM} onChange={setInputM} />
           <TokenField label="Output tokens · per month" value={outputM} onChange={setOutputM} />
@@ -102,8 +102,8 @@ export default function Calculator() {
           const provider = getProvider(model.providerId);
           const width = maxCost > 0 ? Math.max(2, (cost / maxCost) * 100) : 0;
           return (
-            <div key={model.slug} className="flex items-center gap-4 px-4 py-4 sm:px-6">
-              <span className="w-6 font-mono text-xs text-muted-foreground/70">{String(index + 1).padStart(2, "0")}</span>
+            <div key={model.slug} className="flex items-center gap-3 px-3 py-4 sm:gap-4 sm:px-6">
+              <span className="hidden w-6 font-mono text-xs text-muted-foreground/70 xs:block">{String(index + 1).padStart(2, "0")}</span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link to={`/models/${model.slug}`} className="text-sm font-medium hover:text-primary">
@@ -131,7 +131,7 @@ export default function Calculator() {
               <div className="hidden w-28 text-right font-mono text-[11px] tabular-nums text-muted-foreground sm:block">
                 {formatPrice(model.pricing.input)} / {formatPrice(model.pricing.output)}
               </div>
-              <div className="w-24 text-right font-mono text-sm tabular-nums sm:w-28">
+              <div className="w-20 text-right font-mono text-sm tabular-nums sm:w-28">
                 {formatMonthly(cost)}
                 <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground/60">
                   per month

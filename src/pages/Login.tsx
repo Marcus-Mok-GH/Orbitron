@@ -39,7 +39,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 animate-fade-in">
+    <div className="min-h-dvh flex items-center justify-center bg-background p-4 py-10 animate-fade-in">
       <div className="w-full max-w-sm">
         <Link to="/" className="inline-flex justify-center mb-8 w-full">
           <div className="w-8 h-8 bg-foreground rounded-sm grid place-items-center">
@@ -62,6 +62,9 @@ export default function Login() {
               type="email"
               required
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -93,7 +96,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full h-10 inline-flex items-center justify-center bg-foreground text-background rounded-md text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50"
+            className="w-full h-11 inline-flex items-center justify-center bg-foreground text-background rounded-md text-sm font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50"
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>

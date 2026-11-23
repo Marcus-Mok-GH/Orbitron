@@ -63,9 +63,9 @@ export default function SharedChatPage() {
   }, [slug]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground dark">
-      <header className="border-b border-border bg-background sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+    <div className="min-h-dvh bg-background text-foreground dark">
+      <header className="border-b border-border bg-background sticky top-0 z-10 safe-top">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-2 sm:gap-3">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <div className="w-6 h-6 bg-foreground rounded-sm grid place-items-center">
               <div className="w-2.5 h-2.5 bg-background rounded-sm" />
@@ -77,14 +77,14 @@ export default function SharedChatPage() {
           </div>
           <Link
             to="/chat"
-            className="shrink-0 text-xs font-mono px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+            className="shrink-0 text-xs font-mono px-3 py-2 rounded-md border border-border hover:bg-muted transition-colors whitespace-nowrap"
           >
             Try Orbitron
           </Link>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
         {loading && (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="w-5 h-5 animate-spin" />

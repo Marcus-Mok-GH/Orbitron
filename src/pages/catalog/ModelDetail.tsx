@@ -60,7 +60,7 @@ export default function ModelDetail() {
   const related = similarModels(model, 3);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:py-16">
       <Link
         to="/models"
         className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:text-foreground"
@@ -69,13 +69,13 @@ export default function ModelDetail() {
         All models
       </Link>
 
-      <div className="mt-8 grid gap-12 lg:grid-cols-[1fr_360px]">
+      <div className="mt-8 grid gap-8 sm:gap-12 lg:grid-cols-[1fr_360px]">
         <div>
           <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             {provider && <ProviderDot color={provider.color} />}
             {provider?.name} · {provider?.region}
           </div>
-          <h1 className="mt-4 font-display text-4xl font-bold tracking-tight sm:text-5xl">{model.name}</h1>
+          <h1 className="mt-4 font-display text-3xl font-bold tracking-tight sm:text-5xl">{model.name}</h1>
           <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground">{model.summary}</p>
 
           <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -135,7 +135,7 @@ export default function ModelDetail() {
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-          <div className="panel p-6">
+          <div className="panel p-4 sm:p-6">
             <h2 className="eyebrow">Spec sheet</h2>
             <dl className="mt-4 divide-y divide-white/[0.06]">
               <SpecRow label="Context window" value={`${formatTokens(model.contextWindow)} tokens`} />
@@ -158,7 +158,7 @@ export default function ModelDetail() {
             )}
           </div>
 
-          <div className="panel p-6">
+          <div className="panel p-4 sm:p-6">
             <h2 className="eyebrow">Put it to work</h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Compare {model.name} against the closest alternatives before you commit.
@@ -180,7 +180,7 @@ export default function ModelDetail() {
             </p>
           </div>
 
-          <div className="panel p-6">
+          <div className="panel p-4 sm:p-6">
             <h2 className="eyebrow">Benchmark key</h2>
             <dl className="mt-4 space-y-3">
               {benchmarks.slice(0, 4).map((id) => (

@@ -41,7 +41,7 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
         type="button"
         onClick={handleCopy}
         aria-label={copied ? "Copied" : "Copy code"}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border border-border text-muted-foreground hover:text-foreground hover:bg-background opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        className="touch-actions absolute top-2 right-2 p-1.5 rounded-md bg-background/80 border border-border text-muted-foreground hover:text-foreground hover:bg-background opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 transition-opacity"
       >
         {copied ? (
           <Check className="w-3.5 h-3.5 text-primary" />

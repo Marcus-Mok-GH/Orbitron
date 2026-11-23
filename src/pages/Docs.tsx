@@ -57,7 +57,7 @@ export default function Docs() {
   const statusResponse = "{\n  'status': 'operational',\n  'checkedAt': '2025-01-15T12:00:00.000Z',\n  'providers': [\n    { 'name': 'OpenAI', 'status': 'operational', 'latencyMs': 45 },\n    { 'name': 'Anthropic', 'status': 'operational', 'latencyMs': 120 },\n    { 'name': 'Google', 'status': 'degraded', 'latencyMs': 4500, 'error': 'High latency' }\n  ]\n}";
 
   return (
-    <div className="container mx-auto px-4 flex items-start gap-12 py-12 animate-fade-in relative">
+    <div className="container mx-auto px-4 flex items-start gap-12 py-8 sm:py-12 animate-fade-in relative">
       <aside className="w-64 shrink-0 hidden lg:block sticky top-24 h-[calc(100vh-8rem)] overflow-y-auto pr-4">
         <nav className="space-y-6">
           <div>
@@ -104,15 +104,40 @@ export default function Docs() {
       </aside>
 
       <div className="flex-1 max-w-3xl min-w-0">
+        {/* Mobile table of contents — the desktop sidebar is hidden below lg. */}
+        <details className="lg:hidden mb-8 rounded-lg border border-border bg-card/60 px-4 py-3">
+          <summary className="cursor-pointer text-sm font-bold">On this page</summary>
+          <nav className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+            {[
+              ["quickstart", "Quickstart"],
+              ["auth", "Authentication"],
+              ["base-url", "Base URL"],
+              ["sdks", "SDKs"],
+              ["chat", "Chat Completions"],
+              ["openai-chat", "OpenAI Compat"],
+              ["anthropic", "Anthropic Compat"],
+              ["streaming", "Streaming"],
+              ["tools", "Web Search"],
+              ["images", "Image Generation"],
+              ["models", "List Models"],
+              ["errors", "Errors"],
+            ].map(([id, label]) => (
+              <a key={id} href={`#${id}`} className="py-0.5 hover:text-foreground">
+                {label}
+              </a>
+            ))}
+          </nav>
+        </details>
+
         <div className="prose prose-invert max-w-none">
-          <h1 id="quickstart" className="text-4xl font-bold tracking-tight mb-4">API Documentation</h1>
-          <p className="text-xl text-muted-foreground font-mono text-sm leading-relaxed mb-12">
+          <h1 id="quickstart" className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">API Documentation</h1>
+          <p className="text-muted-foreground font-mono text-sm leading-relaxed mb-8 sm:mb-12">
             Orbitron provides an OpenAI-compatible API to interact with every frontier model from OpenAI, Anthropic, and Google.
           </p>
 
           {/* Authentication Section */}
           <section id="auth" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Authentication</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Authentication</h2>
             <p className="text-muted-foreground mb-4 text-sm leading-relaxed">
               Every Orbitron request must include a personal API key in the{' '}
               <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/40 text-foreground mx-1">
@@ -140,7 +165,7 @@ export default function Docs() {
               <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2">
                 <span className="text-xs font-mono text-muted-foreground">HTTP request</span>
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`Authorization: Bearer sk-sb-v1-…`}</code>
               </pre>
             </div>
@@ -154,7 +179,7 @@ export default function Docs() {
 
           {/* Base URL Section */}
           <section id="base-url" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Base URL</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Base URL</h2>
             <p className="text-muted-foreground mb-4 text-sm leading-relaxed">
               All API endpoints are relative to your deployment's origin. When using the SDK, set the base URL to:
             </p>
@@ -162,7 +187,7 @@ export default function Docs() {
               <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2">
                 <span className="text-xs font-mono text-muted-foreground">Base URL</span>
               </div>
-              <pre className="p-4 text-sm font-mono text-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-foreground bg-card overflow-x-auto break-all whitespace-pre-wrap">
                 <code>{baseUrl}/api</code>
               </pre>
             </div>
@@ -174,7 +199,7 @@ export default function Docs() {
 
           {/* SDKs Section */}
           <section id="sdks" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Official SDKs</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Official SDKs</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Orbitron is fully compatible with the official OpenAI SDKs. Just change the base URL and use your Orbitron API key.
             </p>
@@ -187,7 +212,7 @@ export default function Docs() {
                 </div>
                 <CopyButton text={quickstartNode} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{quickstartNode}</code>
               </pre>
             </div>
@@ -200,7 +225,7 @@ export default function Docs() {
                 </div>
                 <CopyButton text={quickstartPython} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{quickstartPython}</code>
               </pre>
             </div>
@@ -213,7 +238,7 @@ export default function Docs() {
                 </div>
                 <CopyButton text={curlExample} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{curlExample}</code>
               </pre>
             </div>
@@ -221,10 +246,10 @@ export default function Docs() {
 
           {/* Chat Completions Section */}
           <section id="chat" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Chat Completions</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Chat Completions</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-green-500/20 text-green-400 font-mono text-xs font-bold rounded">POST</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/chat</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/chat</code>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Creates a model response for the given chat conversation. Supports streaming, tool use, and vision.
@@ -289,7 +314,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={'{"modelId":"openai-large","messages":[{"role":"user","content":"Hello!"}]}'} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`{\n  "modelId": "openai-large",\n  "messages": [\n    { "role": "user", "content": "Hello!" }\n  ]\n}`}</code>
               </pre>
             </div>
@@ -297,10 +322,10 @@ export default function Docs() {
 
           {/* OpenAI-Compatible Chat Completions Section */}
           <section id="openai-chat" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">OpenAI Chat Completions (Compatible)</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">OpenAI Chat Completions (Compatible)</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-green-500/20 text-green-400 font-mono text-xs font-bold rounded">POST</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/v1/chat/completions</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/v1/chat/completions</code>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Drop-in replacement for OpenAI's{' '}
@@ -322,7 +347,7 @@ export default function Docs() {
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">Node.js</span>
                 <CopyButton text={`import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  baseURL: '${baseUrl}/api/v1',\n  apiKey: process.env.ORBITRON_API_KEY,\n});\n\nconst completion = await client.chat.completions.create({\n  model: 'claude-sonnet-4.6',\n  messages: [{ role: 'user', content: 'Hello, world!' }],\n});\n\nconsole.log(completion.choices[0].message.content);`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`import OpenAI from 'openai';\n\nconst client = new OpenAI({\n  baseURL: '${baseUrl}/api/v1',\n  apiKey: process.env.ORBITRON_API_KEY,\n});\n\nconst completion = await client.chat.completions.create({\n  model: 'claude-sonnet-4.6',\n  messages: [{ role: 'user', content: 'Hello, world!' }],\n});\n\nconsole.log(completion.choices[0].message.content);`}</code>
               </pre>
             </div>
@@ -333,7 +358,7 @@ export default function Docs() {
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">Python</span>
                 <CopyButton text={`import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url='${baseUrl}/api/v1',\n    api_key=os.environ['ORBITRON_API_KEY'],\n)\n\ncompletion = client.chat.completions.create(\n    model='claude-sonnet-4.6',\n    messages=[{'role': 'user', 'content': 'Hello, world!'}],\n)\nprint(completion.choices[0].message.content)`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`import os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    base_url='${baseUrl}/api/v1',\n    api_key=os.environ['ORBITRON_API_KEY'],\n)\n\ncompletion = client.chat.completions.create(\n    model='claude-sonnet-4.6',\n    messages=[{'role': 'user', 'content': 'Hello, world!'}],\n)\nprint(completion.choices[0].message.content)`}</code>
               </pre>
             </div>
@@ -344,7 +369,7 @@ export default function Docs() {
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">cURL</span>
                 <CopyButton text={`curl ${baseUrl}/api/v1/chat/completions \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    "model": "openai/gpt-5.4-nano",\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`curl ${baseUrl}/api/v1/chat/completions \\\n  -H 'Authorization: Bearer $ORBITRON_API_KEY' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\n    "model": "openai/gpt-5.4-nano",\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`}</code>
               </pre>
             </div>
@@ -406,7 +431,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={`{\n  "id": "chatcmpl-abc...",\n  "object": "chat.completion",\n  "created": 1710000000,\n  "model": "openai/gpt-5.4-nano",\n  "choices": [\n    {\n      "index": 0,\n      "message": { "role": "assistant", "content": "Hello!" },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 8,\n    "total_tokens": 20\n  }\n}`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`{\n  "id": "chatcmpl-abc...",\n  "object": "chat.completion",\n  "created": 1710000000,\n  "model": "openai/gpt-5.4-nano",\n  "choices": [\n    {\n      "index": 0,\n      "message": { "role": "assistant", "content": "Hello!" },\n      "finish_reason": "stop"\n    }\n  ],\n  "usage": {\n    "prompt_tokens": 12,\n    "completion_tokens": 8,\n    "total_tokens": 20\n  }\n}`}</code>
               </pre>
             </div>
@@ -426,10 +451,10 @@ export default function Docs() {
 
           {/* Anthropic-Compatible Messages Section */}
           <section id="anthropic" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Anthropic Messages (Compatible)</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Anthropic Messages (Compatible)</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-green-500/20 text-green-400 font-mono text-xs font-bold rounded">POST</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/v1/messages</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/v1/messages</code>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Drop-in replacement for Anthropic's{' '}
@@ -448,7 +473,7 @@ export default function Docs() {
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">Node.js</span>
                 <CopyButton text={`import Anthropic from '@anthropic-ai/sdk';\n\nconst client = new Anthropic({\n  baseURL: '${baseUrl}/api',\n  apiKey: process.env.ORBITRON_API_KEY,\n});\n\nconst msg = await client.messages.create({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  messages: [{ role: 'user', content: 'Hello, world!' }],\n});\n\nconsole.log(msg.content[0].text);`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`import Anthropic from '@anthropic-ai/sdk';\n\nconst client = new Anthropic({\n  baseURL: '${baseUrl}/api',\n  apiKey: process.env.ORBITRON_API_KEY,\n});\n\nconst msg = await client.messages.create({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1024,\n  messages: [{ role: 'user', content: 'Hello, world!' }],\n});\n\nconsole.log(msg.content[0].text);`}</code>
               </pre>
             </div>
@@ -459,7 +484,7 @@ export default function Docs() {
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">Python</span>
                 <CopyButton text={`import os\nfrom anthropic import Anthropic\n\nclient = Anthropic(\n    base_url='${baseUrl}/api',\n    api_key=os.environ['ORBITRON_API_KEY'],\n)\n\nmsg = client.messages.create(\n    model='claude-sonnet-4-6',\n    max_tokens=1024,\n    messages=[{'role': 'user', 'content': 'Hello, world!'}],\n)\nprint(msg.content[0].text)`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`import os\nfrom anthropic import Anthropic\n\nclient = Anthropic(\n    base_url='${baseUrl}/api',\n    api_key=os.environ['ORBITRON_API_KEY'],\n)\n\nmsg = client.messages.create(\n    model='claude-sonnet-4-6',\n    max_tokens=1024,\n    messages=[{'role': 'user', 'content': 'Hello, world!'}],\n)\nprint(msg.content[0].text)`}</code>
               </pre>
             </div>
@@ -470,7 +495,7 @@ export default function Docs() {
                 <span className="text-xs font-mono px-2 py-1 rounded bg-background text-foreground shadow-sm">cURL</span>
                 <CopyButton text={`curl ${baseUrl}/api/v1/messages \\\n  -H 'x-api-key: $ORBITRON_API_KEY' \\\n  -H 'content-type: application/json' \\\n  -d '{\n    "model": "claude-sonnet-4-6",\n    "max_tokens": 1024,\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`curl ${baseUrl}/api/v1/messages \\\n  -H 'x-api-key: $ORBITRON_API_KEY' \\\n  -H 'content-type: application/json' \\\n  -d '{\n    "model": "claude-sonnet-4-6",\n    "max_tokens": 1024,\n    "messages": [{"role": "user", "content": "Hello!"}]\n  }'`}</code>
               </pre>
             </div>
@@ -532,7 +557,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={`{\n  "id": "msg_abc...",\n  "type": "message",\n  "role": "assistant",\n  "content": [{ "type": "text", "text": "Hello!" }],\n  "model": "claude-sonnet-4-6",\n  "stop_reason": "end_turn",\n  "stop_sequence": null,\n  "usage": { "input_tokens": 12, "output_tokens": 8 }\n}`} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`{\n  "id": "msg_abc...",\n  "type": "message",\n  "role": "assistant",\n  "content": [{ "type": "text", "text": "Hello!" }],\n  "model": "claude-sonnet-4-6",\n  "stop_reason": "end_turn",\n  "stop_sequence": null,\n  "usage": { "input_tokens": 12, "output_tokens": 8 }\n}`}</code>
               </pre>
             </div>
@@ -551,7 +576,7 @@ export default function Docs() {
 
           {/* Streaming Section */}
           <section id="streaming" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Streaming Responses</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Streaming Responses</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Pass <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/40 text-foreground">stream: true</code> in the SDK or simply receive tokens as they're generated using Server-Sent Events (SSE). Streaming reduces time-to-first-token from seconds to milliseconds.
             </p>
@@ -564,7 +589,7 @@ export default function Docs() {
                 </div>
                 <CopyButton text={streamingNode} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{streamingNode}</code>
               </pre>
             </div>
@@ -577,7 +602,7 @@ export default function Docs() {
                 </div>
                 <CopyButton text={streamingPython} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{streamingPython}</code>
               </pre>
             </div>
@@ -591,7 +616,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={streamingFetch} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{streamingFetch}</code>
               </pre>
             </div>
@@ -604,7 +629,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={streamingSSE} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{streamingSSE}</code>
               </pre>
             </div>
@@ -620,7 +645,7 @@ export default function Docs() {
 
           {/* Web Search Section */}
           <section id="tools" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Web Search</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Web Search</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Enable web search by passing <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/40 text-foreground">{`{ tools: { webSearch: true } }`}</code>. The model will automatically search the web when it needs current information.
             </p>
@@ -630,7 +655,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={toolsRequest} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{toolsRequest}</code>
               </pre>
             </div>
@@ -640,7 +665,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={toolsResponse} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{toolsResponse}</code>
               </pre>
             </div>
@@ -655,7 +680,7 @@ export default function Docs() {
 
           {/* Vision Section */}
           <section id="vision" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Vision</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Vision</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Vision-capable models can analyze images. Include an image in your message content using the OpenAI SDK format:
             </p>
@@ -663,7 +688,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={'{"modelId":"openai-large","messages":[{"role":"user","content":[{"type":"text","text":"What is in this image?"},{"type":"image_url","image_url":{"url":"https://example.com/image.jpg"}}]}]}'} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`{\n  "modelId": "openai-large",\n  "messages": [\n    {\n      "role": "user",\n      "content": [\n        { "type": "text", "text": "What is in this image?" },\n        { "type": "image_url", "image_url": { "url": "https://example.com/image.jpg" } }\n      ]\n    }\n  ]\n}`}</code>
               </pre>
             </div>
@@ -674,7 +699,7 @@ export default function Docs() {
 
           {/* Reasoning Section */}
           <section id="reasoning" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Reasoning Models</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Reasoning Models</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Reasoning models (o-series, GPT-5 series) can think through complex problems. Control reasoning effort with the <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/40 text-foreground">reasoningLevel</code> parameter:
             </p>
@@ -687,7 +712,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={'{"modelId":"o3","messages":[{"role":"user","content":"Prove P=NP or show why it is hard"}],"reasoningLevel":"high"}'} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`{\n  "modelId": "o3",\n  "messages": [\n    { "role": "user", "content": "Prove P=NP or show why it is hard" }\n  ],\n  "reasoningLevel": "high"\n}`}</code>
               </pre>
             </div>
@@ -695,10 +720,10 @@ export default function Docs() {
 
           {/* Image Generation Section */}
           <section id="images" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Image Generation</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Image Generation</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-green-500/20 text-green-400 font-mono text-xs font-bold rounded">POST</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/images</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/images</code>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Generate images using AI. Supports <span className="text-foreground">gpt-image-1</span> (OpenAI) and <span className="text-foreground">gemini-2.5-flash-image</span> (Google).
@@ -745,7 +770,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={imageRequest} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{imageRequest}</code>
               </pre>
             </div>
@@ -755,7 +780,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={imageResponse} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{imageResponse}</code>
               </pre>
             </div>
@@ -763,10 +788,10 @@ export default function Docs() {
 
           {/* List Models Section */}
           <section id="models" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">List Models</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">List Models</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-blue-500/20 text-blue-400 font-mono text-xs font-bold rounded">GET</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/models</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/models</code>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Returns a list of all available models with their pricing and capabilities.
@@ -797,7 +822,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={modelsResponse} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{modelsResponse}</code>
               </pre>
             </div>
@@ -805,10 +830,10 @@ export default function Docs() {
 
           {/* Status Section */}
           <section id="status" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Status</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Status</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-blue-500/20 text-blue-400 font-mono text-xs font-bold rounded">GET</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/status</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/status</code>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Check the health status of all AI providers. Results are cached for 30 seconds.
@@ -819,7 +844,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={statusResponse} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{statusResponse}</code>
               </pre>
             </div>
@@ -834,10 +859,10 @@ export default function Docs() {
 
           {/* Credits Section */}
           <section id="credits" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Credits</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Credits</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-blue-500/20 text-blue-400 font-mono text-xs font-bold rounded">GET</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/credits</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/credits</code>
               <span className="text-xs text-muted-foreground">Requires Session Auth</span>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
@@ -849,7 +874,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={'{"balanceCents":500,"balanceUsd":5.00,"welcomeGrantedAt":"2025-01-01T00:00:00Z","grants":[]}'} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{`{\n  "balanceCents": 500,\n  "balanceUsd": 5.00,\n  "welcomeGrantedAt": "2025-01-01T00:00:00Z",\n  "legacyGrantedAt": "2025-01-10T00:00:00Z",\n  "grants": [\n    {\n      "id": "grant_123",\n      "amountCents": 1000,\n      "amountUsd": 10.00,\n      "reason": "purchase",\n      "description": "Added $10 credit",\n      "createdAt": "2025-01-15T12:00:00Z"\n    }\n  ]\n}`}</code>
               </pre>
             </div>
@@ -857,10 +882,10 @@ export default function Docs() {
 
           {/* Usage Section */}
           <section id="usage" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Usage Analytics</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Usage Analytics</h2>
             <div className="flex items-center gap-3 mb-6">
               <span className="px-2 py-1 bg-blue-500/20 text-blue-400 font-mono text-xs font-bold rounded">GET</span>
-              <code className="text-sm font-mono text-muted-foreground">{baseUrl}/api/usage</code>
+              <code className="text-sm font-mono text-muted-foreground break-all min-w-0">{baseUrl}/api/usage</code>
               <span className="text-xs text-muted-foreground">Requires Session Auth</span>
             </div>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
@@ -882,7 +907,7 @@ export default function Docs() {
 
           {/* Errors Section */}
           <section id="errors" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Error Handling</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Error Handling</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               All errors return a JSON object with an <code className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/40 text-foreground">error</code> field containing the message and type.
             </p>
@@ -892,14 +917,14 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={errorResponse} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{errorResponse}</code>
               </pre>
             </div>
 
             <h3 className="text-lg font-bold mt-8 mb-3">HTTP Status Codes</h3>
             <div className="border border-border rounded-lg bg-card p-4 font-mono text-sm mb-6">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                 <div>
                   <span className="text-green-400 font-bold">200</span>
                   <span className="text-muted-foreground ml-2">Success</span>
@@ -936,7 +961,7 @@ export default function Docs() {
               <div className="flex items-center justify-end border-b border-border bg-muted/30 px-4 py-2">
                 <CopyButton text={creditsError} />
               </div>
-              <pre className="p-4 text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
+              <pre className="p-3 sm:p-4 text-xs sm:text-sm font-mono text-muted-foreground bg-card overflow-x-auto">
                 <code>{creditsError}</code>
               </pre>
             </div>
@@ -944,7 +969,7 @@ export default function Docs() {
 
           {/* Rate Limits Section */}
           <section id="rate-limits" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Rate Limits</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Rate Limits</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Rate limits protect the API from abuse and ensure fair access for all users.
             </p>
@@ -965,7 +990,7 @@ export default function Docs() {
 
           {/* Pricing Section */}
           <section id="pricing" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Pricing</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Pricing</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Orbitron charges based on token usage at the model's listed price per million tokens.
             </p>
@@ -1037,15 +1062,15 @@ export default function Docs() {
 
           {/* Model IDs Section */}
           <section id="model-ids" className="mb-16">
-            <h2 className="text-2xl font-bold mb-4">Model ID Reference</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Model ID Reference</h2>
             <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
               Use these IDs when specifying the model in your API requests. Full list with descriptions available at{' '}
               <a href="#models" className="text-foreground underline">GET /api/models</a>.
             </p>
 
             <h3 className="text-lg font-bold mb-3">Anthropic</h3>
-            <div className="rounded-lg border border-border overflow-hidden mb-6">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-border overflow-x-auto mb-6">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="text-left p-3 font-mono">ID</th>
@@ -1074,8 +1099,8 @@ export default function Docs() {
             </div>
 
             <h3 className="text-lg font-bold mb-3">OpenAI</h3>
-            <div className="rounded-lg border border-border overflow-hidden mb-6">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-border overflow-x-auto mb-6">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="text-left p-3 font-mono">ID</th>
@@ -1109,8 +1134,8 @@ export default function Docs() {
             </div>
 
             <h3 className="text-lg font-bold mb-3">Google</h3>
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="rounded-lg border border-border overflow-x-auto">
+              <table className="w-full min-w-[420px] text-sm">
                 <thead className="bg-muted/30">
                   <tr>
                     <th className="text-left p-3 font-mono">ID</th>

@@ -26,13 +26,13 @@ const response = await client.chat.completions.create({
 
   return (
     <div className="flex flex-col animate-fade-in">
-      <section className="pt-20 sm:pt-32 pb-16 sm:pb-24 px-4 relative overflow-hidden">
+      <section className="pt-12 sm:pt-32 pb-12 sm:pb-24 px-4 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] opacity-20 pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/30 to-blue-500/30 blur-[100px] rounded-full" />
         </div>
         
         <div className="container mx-auto text-center max-w-4xl relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 border border-border text-sm font-mono text-muted-foreground mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 border border-border text-xs sm:text-sm font-mono text-muted-foreground mb-6 sm:mb-8">
             <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
             OpenAI · Anthropic · Google · one API
           </div>
@@ -97,7 +97,7 @@ const response = await client.chat.completions.create({
                   <CopyButton text={heroCode} />
                 </div>
               </div>
-              <div className="p-4 sm:p-6 overflow-x-auto text-sm font-mono leading-relaxed">
+              <div className="p-3 sm:p-6 overflow-x-auto text-xs sm:text-sm font-mono leading-relaxed">
                 <pre>
                   <code className="text-muted-foreground">
 <span className="text-blue-400">import</span> OpenAI <span className="text-blue-400">from</span> <span className="text-green-400">"openai"</span>;{`\n\n`}

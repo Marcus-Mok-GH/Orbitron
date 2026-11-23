@@ -105,7 +105,7 @@ print(response.choices[0].message.content)`,
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in overflow-y-auto">
+    <div className="flex flex-col h-full animate-fade-in overflow-y-auto safe-bottom">
       <header className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 border-b border-border bg-card">
         <Link to="/models" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground font-mono mb-4 sm:mb-6 transition-colors w-fit">
           <ArrowLeft className="w-4 h-4" /> Back to catalog
@@ -137,7 +137,7 @@ print(response.choices[0].message.content)`,
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <Link to="/chat" className="px-3 sm:px-4 py-2 bg-foreground text-background rounded-md font-medium text-sm hover:bg-foreground/90 transition-colors whitespace-nowrap">
+            <Link to="/chat" className="px-3 sm:px-4 py-2.5 bg-foreground text-background rounded-md font-medium text-sm hover:bg-foreground/90 transition-colors whitespace-nowrap">
               Try in Chat
             </Link>
           </div>
@@ -192,7 +192,7 @@ print(response.choices[0].message.content)`,
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-5 sm:gap-6 mt-6 sm:mt-8 border-b border-border overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="flex items-center gap-5 sm:gap-6 mt-6 sm:mt-8 border-b border-border overflow-x-auto no-scrollbar -mx-4 sm:mx-0 px-4 sm:px-0">
           {["overview", "api", "benchmarks"].map(tab => (
             <button
               key={tab}
@@ -207,7 +207,7 @@ print(response.choices[0].message.content)`,
         </div>
       </header>
 
-      <div className="flex-1 p-4 sm:p-6 lg:p-8">
+      <div className="flex-1 p-4 sm:p-6 lg:p-8 pb-8">
         {activeTab === "overview" && (
           <div className="max-w-4xl space-y-6 sm:space-y-8">
             <section>

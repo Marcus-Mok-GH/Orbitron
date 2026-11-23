@@ -86,9 +86,9 @@ export default function Models() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-20">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
       <p className="eyebrow">Model directory</p>
-      <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Every model worth knowing</h1>
+      <h1 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-5xl">Every model worth knowing</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
         {MODELS.length} models from {PROVIDERS.length} labs — frontier APIs and open weights side by side.
         Models are being added now; the directory, filters, and comparisons will light up as soon as they do.

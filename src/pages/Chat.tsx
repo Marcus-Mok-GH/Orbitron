@@ -840,7 +840,7 @@ export default function Chat() {
                       shareState[c.id] === "sharing" ||
                       c.messages.length === 0
                     }
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-2 hover:text-foreground transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="touch-actions opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100 p-2 hover:text-foreground transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
                     aria-label={
                       shareState[c.id] === "shared"
                         ? "Share link copied"
@@ -866,7 +866,7 @@ export default function Chat() {
                   </button>
                   <button
                     onClick={() => deleteChat(c.id)}
-                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-2 hover:text-destructive transition-opacity"
+                    className="touch-actions opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100 p-2 hover:text-destructive transition-opacity"
                     aria-label="Delete chat"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -984,7 +984,10 @@ export default function Chat() {
         <div className="lg:hidden fixed inset-0 z-40 flex" onClick={() => setHistoryOpen(false)}>
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
           <div
-            className="relative w-72 max-w-[85vw] bg-background border-r border-border h-full"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chat history"
+            className="relative w-72 max-w-[85vw] bg-background border-r border-border h-full safe-top safe-bottom"
             onClick={(e) => e.stopPropagation()}
           >
             {HistorySidebar}
@@ -996,7 +999,7 @@ export default function Chat() {
       <div className="flex-1 flex flex-col bg-muted/10 relative min-w-0">
         {/* Credit warning banner */}
         {showCreditWarning && (
-          <div className="bg-yellow-500/10 border-b border-yellow-500/30 px-3 sm:px-4 py-2 sm:py-3">
+          <div className="shrink-0 bg-yellow-500/10 border-b border-yellow-500/30 px-3 sm:px-4 py-2 sm:py-3">
             <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 {creditBalanceCents === 0 ? (
@@ -1004,7 +1007,7 @@ export default function Chat() {
                 ) : (
                   <Wallet className="w-4 h-4 text-yellow-500 shrink-0" />
                 )}
-                <span className="text-xs sm:text-sm font-medium text-yellow-200 truncate">
+                <span className="text-xs sm:text-sm font-medium text-yellow-200 leading-snug">
                   {creditBalanceCents === 0
                     ? "You have no credits remaining. Add more to continue chatting."
                     : `Low credits (${(creditBalanceCents / 100).toFixed(2)} remaining). Consider adding more.`}
@@ -1031,7 +1034,7 @@ export default function Chat() {
           </div>
         )}
 
-        <header className="h-14 border-b border-border flex items-center justify-between px-3 sm:px-4 bg-background z-10 gap-2">
+        <header className="h-12 sm:h-14 border-b border-border flex items-center justify-between px-2.5 sm:px-4 bg-background z-10 gap-2 shrink-0">
           <button
             onClick={() => setHistoryOpen(true)}
             className="lg:hidden p-2 -ml-1 rounded-md hover:bg-muted shrink-0"
@@ -1128,14 +1131,14 @@ export default function Chat() {
             );
           })()}
                   {msg.role === "assistant" && !isStreamingThis && (
-                    <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <div className="touch-actions flex items-center gap-3 text-xs font-mono text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                       {!streaming && (
                         <button
                           type="button"
                           onClick={() => void regenerate(msg.id)}
                           title="Regenerate response"
                           aria-label="Regenerate response"
-                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                          className="inline-flex items-center gap-1 py-1.5 hover:text-foreground transition-colors"
                         >
                           <RotateCcw className="w-3 h-3" />
                           <span>Regenerate</span>
@@ -1181,7 +1184,7 @@ export default function Chat() {
                       ? "Web search on"
                       : "Enable web search"
                   }
-                  className={`p-2 rounded-md transition-colors ${
+                  className={`p-2 rounded-md transition-colors touch-target ${
                     settings.webSearch
                       ? "bg-primary/10 text-primary hover:bg-primary/15"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1194,7 +1197,7 @@ export default function Chat() {
                 {streaming ? (
                   <button
                     onClick={stop}
-                    className="bg-destructive text-destructive-foreground p-2 rounded-md hover:bg-destructive/90 transition-colors"
+                    className="bg-destructive text-destructive-foreground p-2 rounded-md hover:bg-destructive/90 transition-colors touch-target"
                     aria-label="Stop generation"
                   >
                     <X className="w-4 h-4" />
@@ -1204,7 +1207,7 @@ export default function Chat() {
                     onClick={() => void send()}
                     disabled={!input.trim() || creditBalanceCents === 0}
                     title={creditBalanceCents === 0 ? "No credits remaining" : undefined}
-                    className="bg-foreground text-background p-2 rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="bg-foreground text-background p-2 rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-target"
                     aria-label="Send message"
                   >
                     <Send className="w-4 h-4" />
@@ -1226,7 +1229,10 @@ export default function Chat() {
         <div className="lg:hidden fixed inset-0 z-40 flex justify-end" onClick={() => setParamsOpen(false)}>
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
           <div
-            className="relative w-80 max-w-[90vw] bg-background border-l border-border h-full overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chat parameters"
+            className="relative w-80 max-w-[90vw] bg-background border-l border-border h-full overflow-y-auto safe-top safe-bottom"
             onClick={(e) => e.stopPropagation()}
           >
             {ParamsSidebar}

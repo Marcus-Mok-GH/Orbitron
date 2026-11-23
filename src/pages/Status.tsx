@@ -67,7 +67,7 @@ export default function Status() {
   const aggregate = data ? STATUS_META[data.status] : STATUS_META.operational;
 
   return (
-    <div className="container mx-auto px-4 py-10 sm:py-16 max-w-3xl animate-fade-in">
+    <div className="container mx-auto px-4 py-8 sm:py-16 max-w-3xl animate-fade-in">
       <div className="flex items-start justify-between mb-6 sm:mb-10 gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight mb-2">System Status</h1>
@@ -78,7 +78,7 @@ export default function Status() {
         <button
           onClick={refresh}
           disabled={loading}
-          className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 border border-border rounded-md px-3 py-1.5 disabled:opacity-50"
+          className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 border border-border rounded-md px-3 py-2 shrink-0 disabled:opacity-50 touch-target"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -136,7 +136,7 @@ export default function Status() {
             return (
               <div
                 key={p.name}
-                className="rounded-lg border border-border bg-card px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4"
+                className="rounded-lg border border-border bg-card px-3 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4"
               >
                 <div className={`w-2.5 h-2.5 rounded-full ${meta.dotClass} shrink-0`} />
                 <div className="min-w-0 flex-1">

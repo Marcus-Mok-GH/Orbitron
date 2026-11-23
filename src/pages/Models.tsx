@@ -164,6 +164,17 @@ export default function Models() {
 
   const providerLabel = provider === "all" ? "All providers" : provider;
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortKey)?.label ?? "Sort";
+  const sortDirection = sortLabel.includes("↑") ? " ↑" : sortLabel.includes("↓") ? " ↓" : "";
+  const sortShortLabel =
+    (sortKey === "context-desc"
+      ? "Context"
+      : sortKey.startsWith("price")
+      ? "Price"
+      : sortKey.startsWith("output")
+      ? "Output"
+      : sortKey.startsWith("latency")
+      ? "Latency"
+      : "Speed") + sortDirection;
   const modalityLabel =
     selectedModalities.length === 0
       ? "Modalities"
@@ -181,7 +192,7 @@ export default function Models() {
         </p>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 bg-muted/10">
+      <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 bg-muted/10 safe-bottom">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 sm:mb-6">
           <div className="relative w-full sm:w-64 md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -193,7 +204,7 @@ export default function Models() {
               className="w-full pl-9 pr-4 py-2.5 sm:py-2 bg-background border border-border rounded-md font-mono text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
             {/* Provider filter */}
             <div className="relative flex-1 sm:flex-none" ref={providerRef}>
               <button
@@ -202,12 +213,12 @@ export default function Models() {
                   setProviderOpen((o) => !o);
                   setSortOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-background border border-border rounded-md font-mono text-xs sm:text-sm hover:bg-accent transition-colors touch-target"
+                className="w-full min-w-0 flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-background border border-border rounded-md font-mono text-xs sm:text-sm hover:bg-accent transition-colors touch-target"
               >
-                <Filter className="w-4 h-4" /> <span className="hidden xs:inline">{providerLabel}</span><span className="xs:hidden">Provider</span>
+                <Filter className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline truncate">{providerLabel}</span><span className="sm:hidden truncate">Provider</span>
               </button>
               {providerOpen && (
-                <div className="absolute right-0 sm:right-auto sm:left-0 mt-1 z-20 w-48 bg-background border border-border rounded-md shadow-lg py-1 font-mono text-sm">
+                <div className="absolute left-0 mt-1 z-20 w-48 max-w-[70vw] bg-background border border-border rounded-md shadow-lg py-1 font-mono text-sm">
                   <MenuItem
                     selected={provider === "all"}
                     onClick={() => {
@@ -242,12 +253,12 @@ export default function Models() {
                   setProviderOpen(false);
                   setSortOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-background border border-border rounded-md font-mono text-xs sm:text-sm hover:bg-accent transition-colors touch-target"
+                className="w-full min-w-0 flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-background border border-border rounded-md font-mono text-xs sm:text-sm hover:bg-accent transition-colors touch-target"
               >
-                <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">{modalityLabel}</span><span className="sm:hidden">Mod.</span>
+                <Sparkles className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline truncate">{modalityLabel}</span><span className="sm:hidden truncate">Mod.</span>
               </button>
               {modalityOpen && (
-                <div className="absolute right-0 sm:right-auto sm:left-0 mt-1 z-20 w-48 bg-background border border-border rounded-md shadow-lg py-1 font-mono text-sm">
+                <div className="absolute left-0 mt-1 z-20 w-48 max-w-[70vw] bg-background border border-border rounded-md shadow-lg py-1 font-mono text-sm">
                   {MODALITIES.map((mod) => (
                     <MenuItem
                       key={mod}
@@ -281,13 +292,15 @@ export default function Models() {
                   setSortOpen((o) => !o);
                   setProviderOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-background border border-border rounded-md font-mono text-xs sm:text-sm hover:bg-accent transition-colors touch-target"
+                className="w-full min-w-0 flex items-center justify-center gap-2 px-3 py-2 sm:py-1.5 bg-background border border-border rounded-md font-mono text-xs sm:text-sm hover:bg-accent transition-colors touch-target"
               >
-                <ArrowUpDown className="w-4 h-4" />
-                <span className="hidden sm:inline">Sort:</span> {sortLabel}
+                <ArrowUpDown className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">Sort:</span>
+                <span className="sm:hidden truncate">{sortShortLabel}</span>
+                <span className="hidden sm:inline truncate">{sortLabel}</span>
               </button>
               {sortOpen && (
-                <div className="absolute right-0 mt-1 z-20 w-56 bg-background border border-border rounded-md shadow-lg py-1 font-mono text-sm">
+                <div className="absolute right-0 mt-1 z-20 w-56 max-w-[70vw] bg-background border border-border rounded-md shadow-lg py-1 font-mono text-sm">
                   {SORT_OPTIONS.map((opt) => (
                     <MenuItem
                       key={opt.value}
@@ -482,7 +495,7 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors"
+      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 sm:py-1.5 text-left hover:bg-accent transition-colors"
     >
       <span>{children}</span>
       {selected && <Check className="w-3.5 h-3.5 text-primary" />}

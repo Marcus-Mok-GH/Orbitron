@@ -81,7 +81,7 @@ export default function Usage() {
   );
 
   return (
-    <div className="flex flex-col h-full animate-fade-in p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full animate-fade-in p-4 sm:p-6 lg:p-8 overflow-y-auto safe-bottom">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 sm:mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Usage</h1>
@@ -143,7 +143,7 @@ export default function Usage() {
                 <div className="text-xs sm:text-sm font-mono text-muted-foreground mb-2">
                   {stat.label}
                 </div>
-                <div className="text-xl sm:text-2xl font-bold font-mono truncate">
+                <div className="text-lg sm:text-2xl font-bold font-mono truncate">
                   {isEmpty ? "—" : stat.value}
                 </div>
               </div>
@@ -177,9 +177,9 @@ export default function Usage() {
             </div>
           ) : (
             <>
-              <div className="border border-border rounded-lg bg-card p-6 mb-8">
-                <h3 className="font-medium mb-6">Spend over time</h3>
-                <div className="h-48 w-full flex items-end gap-1">
+              <div className="border border-border rounded-lg bg-card p-4 sm:p-6 mb-8">
+                <h3 className="font-medium mb-4 sm:mb-6">Spend over time</h3>
+                <div className="h-36 sm:h-48 w-full flex items-end gap-0.5 sm:gap-1">
                   {summary.daily.map((d) => {
                     const pct =
                       maxDailyCost > 0 ? (d.costUsd / maxDailyCost) * 100 : 0;

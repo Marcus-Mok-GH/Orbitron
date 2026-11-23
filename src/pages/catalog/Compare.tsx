@@ -97,9 +97,9 @@ export default function Compare() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-20">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:py-20">
       <p className="eyebrow">Head to head</p>
-      <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">Compare models side by side</h1>
+      <h1 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-5xl">Compare models side by side</h1>
       <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
         Pick up to three models. The comparison lives in the URL, so you can share the exact matchup with your team.
       </p>

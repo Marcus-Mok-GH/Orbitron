@@ -82,7 +82,7 @@ export default function Credits() {
   const grants = data?.grants ?? [];
 
   return (
-    <div className="flex flex-col h-full animate-fade-in p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full animate-fade-in p-4 sm:p-6 lg:p-8 overflow-y-auto safe-bottom">
       <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">
         Billing & Credits
       </h1>
@@ -92,7 +92,7 @@ export default function Credits() {
       </p>
 
       <div className="grid md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        <div className="md:col-span-2 border border-border rounded-lg bg-card p-6 flex flex-col justify-between">
+        <div className="md:col-span-2 border border-border rounded-lg bg-card p-4 sm:p-6 flex flex-col justify-between">
           <div>
             <div className="text-sm font-mono text-muted-foreground mb-2">
               Available Balance
@@ -102,7 +102,7 @@ export default function Credits() {
             ) : error ? (
               <div className="text-sm text-destructive font-mono">{error}</div>
             ) : (
-              <div className="text-4xl font-bold font-mono">
+              <div className="text-3xl sm:text-4xl font-bold font-mono break-all">
                 {formatUsd(balanceUsd)}
               </div>
             )}
@@ -114,7 +114,7 @@ export default function Credits() {
                   : "Credits never expire and can be used across every model."}
             </p>
           </div>
-          <div className="flex gap-3 mt-6">
+          <div className="flex flex-wrap items-center gap-3 mt-6">
             <button
               disabled
               title="Paid top-ups not yet available — billing integration pending"
@@ -128,7 +128,7 @@ export default function Credits() {
           </div>
         </div>
 
-        <div className="border border-border rounded-lg bg-card p-6">
+        <div className="border border-border rounded-lg bg-card p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <CreditCard className="w-5 h-5 text-muted-foreground" />
             <h3 className="font-medium">Payment Methods</h3>
@@ -158,7 +158,7 @@ export default function Credits() {
               ))}
             </div>
           ) : grants.length === 0 ? (
-            <div className="border border-dashed border-border rounded-lg bg-card/30 p-10 text-center">
+            <div className="border border-dashed border-border rounded-lg bg-card/30 p-6 sm:p-10 text-center">
               <div className="w-10 h-10 rounded-full bg-muted/40 grid place-items-center mx-auto mb-3">
                 <Wallet className="w-4 h-4 text-muted-foreground" />
               </div>
@@ -176,7 +176,7 @@ export default function Credits() {
                   return (
                     <div
                       key={g.id}
-                      className="p-4 flex items-center gap-4"
+                      className="p-4 flex items-center gap-3 sm:gap-4"
                       data-testid={`grant-${g.reason}`}
                     >
                       <div className="w-9 h-9 rounded-full bg-emerald-500/10 text-emerald-500 grid place-items-center shrink-0">
@@ -203,7 +203,7 @@ export default function Credits() {
 
         <section>
           <h3 className="font-medium mb-4">Invoices</h3>
-          <div className="border border-dashed border-border rounded-lg bg-card/30 p-10 text-center">
+          <div className="border border-dashed border-border rounded-lg bg-card/30 p-6 sm:p-10 text-center">
             <p className="text-sm font-medium mb-1">No invoices issued</p>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               You can track real spend in the meantime on the{" "}

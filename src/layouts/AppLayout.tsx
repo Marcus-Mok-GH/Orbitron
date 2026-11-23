@@ -103,7 +103,7 @@ export function AppLayout() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
                 isActive
                   ? "bg-primary/10 text-primary font-medium"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -116,7 +116,7 @@ export function AppLayout() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-border relative" ref={accountMenuRef}>
+      <div className="p-3 border-t border-border relative safe-bottom" ref={accountMenuRef}>
         {accountMenuOpen && (
           <div
             role="menu"
@@ -190,7 +190,7 @@ export function AppLayout() {
   );
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="app-shell flex bg-background overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="w-64 border-r border-border hidden md:flex flex-col shrink-0">
         {Sidebar}
@@ -201,7 +201,10 @@ export function AppLayout() {
         <div className="md:hidden fixed inset-0 z-50 flex" onClick={() => setDrawerOpen(false)}>
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
           <aside
-            className="relative w-72 max-w-[85vw] border-r border-border h-full"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            className="relative w-72 max-w-[85vw] border-r border-border h-full safe-top"
             onClick={(e) => e.stopPropagation()}
           >
             {Sidebar}
@@ -210,26 +213,49 @@ export function AppLayout() {
       )}
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col min-w-0 h-screen">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 app-viewport">
         {/* Mobile top bar */}
-        <div className="md:hidden h-14 border-b border-border flex items-center justify-between px-3 sm:px-4 bg-background shrink-0 safe-top">
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="p-2 -ml-1 rounded-md hover:bg-muted touch-target"
-            aria-label="Open menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <Link to="/" className="flex items-center gap-2 font-mono font-bold tracking-tighter text-xs sm:text-sm">
-            <div className="w-4 h-4 bg-foreground rounded-sm grid place-items-center">
-              <div className="w-1.5 h-1.5 bg-background rounded-sm" />
-            </div>
-            SWITCHBOARD
-          </Link>
-          <div className="w-9" />
+        <div className="md:hidden bg-background border-b border-border shrink-0 safe-top">
+          <div className="h-14 flex items-center justify-between px-3 sm:px-4">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-2 -ml-1 rounded-md hover:bg-muted touch-target"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <Link to="/" className="flex items-center gap-2 font-mono font-bold tracking-tighter text-xs sm:text-sm">
+              <div className="w-4 h-4 bg-foreground rounded-sm grid place-items-center">
+                <div className="w-1.5 h-1.5 bg-background rounded-sm" />
+              </div>
+              SWITCHBOARD
+            </Link>
+            <Link
+              to="/settings"
+              aria-label="Account settings"
+              className="rounded-full touch-target grid place-items-center -mr-1 hover:bg-muted"
+            >
+              {user.profileImageUrl ? (
+                <img
+                  src={user.profileImageUrl}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="w-8 h-8 rounded-full bg-accent object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-accent grid place-items-center font-mono text-xs font-bold">
+                  {initials}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
 
-        <Outlet />
+        <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

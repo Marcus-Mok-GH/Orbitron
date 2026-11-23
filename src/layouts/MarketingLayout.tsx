@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 type AggregateStatus = "operational" | "degraded" | "down" | "loading";
@@ -15,6 +16,12 @@ export function MarketingLayout() {
   const location = useLocation();
   const { user, loading: authLoading, login } = useAuth();
   const [systemStatus, setSystemStatus] = useState<AggregateStatus>("loading");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,11 +46,11 @@ export function MarketingLayout() {
   const pill = PILL_META[systemStatus];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-dvh flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-top">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 sm:gap-6">
-            <Link to="/" className="flex items-center gap-2 font-mono font-bold tracking-tighter">
+            <Link to="/" className="flex items-center gap-2 font-mono font-bold tracking-tighter text-sm sm:text-base">
               <div className="w-5 h-5 bg-foreground rounded-sm grid place-items-center">
                 <div className="w-2 h-2 bg-background rounded-sm" />
               </div>
@@ -59,7 +66,7 @@ export function MarketingLayout() {
           <div className="flex items-center gap-2 sm:gap-4">
             <Link
               to="/status"
-              className="hidden sm:flex items-center gap-2 text-xs font-mono text-muted-foreground border border-border rounded-full px-3 py-1 hover:text-foreground hover:border-foreground/30 transition-colors"
+              className="hidden lg:flex items-center gap-2 text-xs font-mono text-muted-foreground border border-border rounded-full px-3 py-1 hover:text-foreground hover:border-foreground/30 transition-colors"
               title="View detailed status"
             >
               <div className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
@@ -68,9 +75,10 @@ export function MarketingLayout() {
             {authLoading ? null : user ? (
               <Link
                 to="/chat"
-                className="text-sm font-medium bg-foreground text-background px-4 py-1.5 rounded-md hover:bg-foreground/90 transition-colors"
+                className="text-xs sm:text-sm font-medium bg-foreground text-background px-3 sm:px-4 py-1.5 rounded-md hover:bg-foreground/90 transition-colors whitespace-nowrap"
               >
-                Open Dashboard
+                <span className="sm:hidden">Dashboard</span>
+                <span className="hidden sm:inline">Open Dashboard</span>
               </Link>
             ) : (
               <>
@@ -84,14 +92,65 @@ export function MarketingLayout() {
                 <button
                   type="button"
                   onClick={login}
-                  className="text-sm font-medium bg-foreground text-background px-3 sm:px-4 py-1.5 rounded-md hover:bg-foreground/90 transition-colors"
+                  className="text-xs sm:text-sm font-medium bg-foreground text-background px-3 sm:px-4 py-1.5 rounded-md hover:bg-foreground/90 transition-colors whitespace-nowrap"
                 >
-                  Get Started
+                  <span className="xs:hidden">Start</span>
+                  <span className="hidden xs:inline">Get Started</span>
                 </button>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((open) => !open)}
+              className="md:hidden p-2 -mr-1 rounded-md hover:bg-muted touch-target"
+              aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileNavOpen}
+            >
+              {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {mobileNavOpen && (
+          <div className="md:hidden border-t border-border/60 bg-background px-4 pb-4 pt-1 animate-fade-in">
+            <nav className="flex flex-col text-sm font-medium">
+              {[
+                { to: "/explore", label: "Explore" },
+                { to: "/models", label: "Models" },
+                { to: "/pricing", label: "Pricing" },
+                { to: "/docs", label: "Docs" },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={`py-3 border-b border-border/50 transition-colors ${
+                    location.pathname.startsWith(item.to)
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <Link
+                to="/status"
+                className="mt-3 flex items-center gap-2 text-xs font-mono text-muted-foreground border border-border rounded-full px-3 py-2 w-fit"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${pill.dot}`} />
+                {pill.label}
+              </Link>
+              {!authLoading && !user && (
+                <button
+                  type="button"
+                  onClick={login}
+                  className="mt-3 py-3 text-left text-sm font-medium text-muted-foreground"
+                >
+                  Log in
+                </button>
+              )}
+            </nav>
+          </div>
+        )}
       </header>
       <main className="flex-1">
         <Outlet />

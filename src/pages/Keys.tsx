@@ -228,16 +228,16 @@ function KeyUsagePanel({ data }: { data: KeyUsageSummary }) {
                 {topModels.map((m) => (
                   <li
                     key={`${m.modelId}-${m.provider}`}
-                    className="flex items-center justify-between gap-3 px-3 py-2 text-xs font-mono"
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-xs font-mono"
                   >
                     <div className="min-w-0 truncate">
                       <span className="text-foreground">{m.modelId}</span>
-                      <span className="text-muted-foreground ml-2">
+                      <span className="hidden xs:inline text-muted-foreground ml-2">
                         {m.provider}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0 text-muted-foreground">
-                      <span>{formatNumber(m.requests)} req</span>
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0 text-muted-foreground">
+                      <span className="hidden xs:inline">{formatNumber(m.requests)} req</span>
                       <span className="text-foreground">
                         {formatUsd(m.costUsd)}
                       </span>
@@ -283,6 +283,26 @@ function StatTile({
       )}
     </div>
   );
+}
+
+/** Shared loading/error/data renderer for the per-key usage panel. */
+function KeyUsageBody({ usage }: { usage: UsageState | undefined }) {
+  if (usage?.loading || !usage) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm font-mono py-6 justify-center">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Loading usage…
+      </div>
+    );
+  }
+  if (usage.error) {
+    return (
+      <div className="text-sm font-mono text-red-400 border border-red-500/40 bg-red-500/10 rounded-md px-3 py-2">
+        {usage.error}
+      </div>
+    );
+  }
+  return usage.data ? <KeyUsagePanel data={usage.data} /> : null;
 }
 
 export default function Keys() {
@@ -432,7 +452,7 @@ export default function Keys() {
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full animate-fade-in p-4 sm:p-6 lg:p-8 overflow-y-auto safe-bottom">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 md:mb-8">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">API Keys</h1>
@@ -469,8 +489,106 @@ export default function Keys() {
           <p className="mt-1">Click <span className="text-foreground">Create Key</span> to generate your first Orbitron API key.</p>
         </div>
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden bg-card overflow-x-auto">
-          <table className="w-full text-sm text-left min-w-[640px]">
+        <>
+          {/* Mobile: stacked key cards (no horizontal scrolling) */}
+          <div className="md:hidden space-y-3">
+            {[...activeKeys, ...revokedKeys].map((key) => {
+              const isOpen = expandedId === key.id;
+              const usage = usageById[key.id];
+              return (
+                <div
+                  key={key.id}
+                  className="border border-border rounded-lg bg-card overflow-hidden"
+                >
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-medium text-foreground flex items-center gap-2 flex-wrap">
+                          <span className="truncate">{key.name}</span>
+                          {key.revokedAt && (
+                            <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-mono uppercase">
+                              revoked
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 text-muted-foreground font-mono text-xs">
+                          <span className="truncate">{key.prefix}…</span>
+                          <button
+                            onClick={() => copyToClipboard(key.prefix, key.id)}
+                            className="p-1 hover:text-foreground"
+                            title="Copy prefix"
+                            aria-label="Copy key prefix"
+                          >
+                            {copiedId === key.id ? (
+                              <Check className="w-3 h-3 text-green-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleUsage(key.id)}
+                        className="p-2 -mt-1 -mr-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                        title={isOpen ? "Hide usage" : "Show usage"}
+                        aria-label={isOpen ? "Hide usage" : "Show usage"}
+                        aria-expanded={isOpen}
+                      >
+                        {isOpen ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+
+                    <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 font-mono text-xs">
+                      <div>
+                        <dt className="text-muted-foreground">Created</dt>
+                        <dd className="mt-0.5 text-foreground">{formatDate(key.createdAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Last used</dt>
+                        <dd className="mt-0.5 text-foreground">{formatRelative(key.lastUsedAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Monthly cap</dt>
+                        <dd className="mt-0.5 text-foreground">
+                          {key.monthlyCapCents == null
+                            ? "No cap"
+                            : `$${(key.monthlyCapCents / 100).toFixed(2)}`}
+                        </dd>
+                      </div>
+                      <div className="flex items-end justify-end">
+                        {key.revokedAt ? (
+                          <span className="text-muted-foreground/60 text-xs">—</span>
+                        ) : (
+                          <button
+                            onClick={() => handleRevoke(key.id)}
+                            disabled={revokingId === key.id}
+                            className="text-muted-foreground hover:text-red-400 text-xs font-mono px-2.5 py-1.5 rounded border border-border hover:border-red-500/40 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                            title="Revoke this key"
+                          >
+                            {revokingId === key.id ? "…" : "Revoke"}
+                          </button>
+                        )}
+                      </div>
+                    </dl>
+                  </div>
+
+                  {isOpen && (
+                    <div className="border-t border-border/60 bg-muted/10 p-4">
+                      <KeyUsageBody usage={usage} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block border border-border rounded-lg overflow-hidden bg-card overflow-x-auto">
+            <table className="w-full text-sm text-left min-w-[640px]">
             <thead className="bg-muted/30 text-muted-foreground font-mono text-xs uppercase">
               <tr>
                 <th className="px-4 sm:px-6 py-4 font-medium">Name & Prefix</th>
@@ -561,18 +679,7 @@ export default function Keys() {
                     {isOpen && (
                       <tr className="bg-muted/10 border-t border-border/60">
                         <td colSpan={5} className="px-4 sm:px-6 py-4 sm:py-5">
-                          {usage?.loading || !usage ? (
-                            <div className="flex items-center gap-2 text-muted-foreground text-sm font-mono py-6 justify-center">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Loading usage…
-                            </div>
-                          ) : usage.error ? (
-                            <div className="text-sm font-mono text-red-400 border border-red-500/40 bg-red-500/10 rounded-md px-3 py-2">
-                              {usage.error}
-                            </div>
-                          ) : usage.data ? (
-                            <KeyUsagePanel data={usage.data} />
-                          ) : null}
+                          <KeyUsageBody usage={usage} />
                         </td>
                       </tr>
                     )}
@@ -580,8 +687,9 @@ export default function Keys() {
                 );
               })}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Create modal */}
@@ -589,7 +697,8 @@ export default function Keys() {
         <div
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => !creating && setIsModalOpen(false)}
-        >        <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md p-4 sm:p-6 animate-fade-in"
+        >        <div
+            className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md p-4 sm:p-6 max-h-[90dvh] overflow-y-auto animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg sm:text-xl font-bold mb-4">Create API Key</h2>
@@ -655,7 +764,7 @@ export default function Keys() {
       {/* Reveal modal — shown ONCE after key creation */}
       {revealedKey && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-lg p-4 sm:p-6 animate-fade-in">
+          <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-lg p-4 sm:p-6 max-h-[90dvh] overflow-y-auto animate-fade-in">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-lg sm:text-xl font-bold">Save your API key</h2>

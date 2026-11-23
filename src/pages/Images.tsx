@@ -345,7 +345,7 @@ export default function Images() {
         {history.length > 0 && (
           <button
             onClick={clearAll}
-            className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+            className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 py-2 -my-2 px-1 -mr-1"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Clear all
@@ -354,7 +354,7 @@ export default function Images() {
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto safe-bottom">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           {/* Prompt composer */}
           <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -533,8 +533,8 @@ export default function Images() {
                       <p className="text-xs leading-relaxed line-clamp-2" title={img.prompt}>
                         {img.prompt}
                       </p>
-                      <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-                        <span title={`${img.model} · Quality: ${getQualityLabel(img.quality)} (${Math.round(getQualityValue(img.quality) * 100)}%)`}>
+                      <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground">
+                        <span className="min-w-0 truncate" title={`${img.model} · Quality: ${getQualityLabel(img.quality)} (${Math.round(getQualityValue(img.quality) * 100)}%)`}>
                           {(IMAGE_MODELS.find((m) => m.id === img.model)?.provider) ?? "?"} · {img.size === "auto" ? "auto" : img.size} · {img.format.toUpperCase()} · {getQualityLabel(img.quality)} · {(img.latencyMs / 1000).toFixed(1)}s
                         </span>
                         <div className="flex items-center gap-1">
@@ -566,11 +566,11 @@ export default function Images() {
       {/* Lightbox */}
       {lightbox && (
         <div
-          className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm grid place-items-center p-4 sm:p-6 animate-fade-in"
+          className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm grid place-items-center p-4 sm:p-6 overflow-y-auto animate-fade-in"
           onClick={() => setLightbox(null)}
         >
           <div
-            className="max-w-4xl w-full max-h-full flex flex-col gap-3 sm:gap-4"
+            className="max-w-4xl w-full max-h-full overflow-y-auto flex flex-col gap-3 sm:gap-4"
             onClick={(e) => e.stopPropagation()}
           >
             <img
@@ -578,7 +578,7 @@ export default function Images() {
               alt={lightbox.prompt}
               loading="eager"
               decoding="async"
-              className="max-w-full max-h-[75vh] object-contain mx-auto rounded-lg border border-border"
+              className="max-w-full max-h-[65dvh] sm:max-h-[75vh] object-contain mx-auto rounded-lg border border-border"
             />
             <div className="bg-card border border-border rounded-lg p-4 space-y-2">
               <p className="text-sm leading-relaxed">{lightbox.prompt}</p>
@@ -588,21 +588,21 @@ export default function Images() {
                   {lightbox.revisedPrompt}
                 </p>
               )}
-              <div className="flex items-center justify-between pt-2 border-t border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-border">
                 <span className="text-xs font-mono text-muted-foreground">
                   {lightbox.size === "auto" ? "auto" : lightbox.size} · {lightbox.format.toUpperCase()} · {(lightbox.latencyMs / 1000).toFixed(1)}s
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => download(lightbox)}
-                    className="text-xs font-medium px-3 py-1.5 rounded-md bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
+                    className="flex-1 sm:flex-none justify-center text-xs font-medium px-3 py-2 rounded-md bg-muted hover:bg-muted/80 transition-colors flex items-center gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Download
                   </button>
                   <button
                     onClick={() => setLightbox(null)}
-                    className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                    className="flex-1 sm:flex-none text-xs font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
                     Close
                   </button>

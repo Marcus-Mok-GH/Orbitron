@@ -5,16 +5,16 @@ import { questModels as models } from "../data/models";
 export default function Pricing() {
   return (
     <div className="animate-fade-in">
-      <header className="pt-20 sm:pt-32 pb-12 sm:pb-16 px-4 text-center max-w-3xl mx-auto">
+      <header className="pt-12 sm:pt-32 pb-10 sm:pb-16 px-4 text-center max-w-3xl mx-auto">
         <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold tracking-tighter mb-4 sm:mb-6">Simple, transparent pricing.</h1>
-        <p className="text-base sm:text-xl text-muted-foreground font-mono text-sm md:text-base leading-relaxed">
+        <p className="text-sm sm:text-lg text-muted-foreground font-mono leading-relaxed">
           Pay per token with zero markup on provider prices. <br/> No monthly minimums. BYOK available for volume users.
         </p>
       </header>
 
       <section className="container mx-auto px-4 max-w-5xl mb-12 sm:mb-24">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          <div className="p-6 sm:p-8 rounded-xl border border-border bg-card flex flex-col">
+          <div className="p-5 sm:p-8 rounded-xl border border-border bg-card flex flex-col">
             <h3 className="text-xl sm:text-2xl font-bold mb-2">Free</h3>
             <p className="text-muted-foreground text-sm mb-6 h-10">Perfect for exploration and side projects.</p>
             <div className="text-3xl sm:text-4xl font-bold mb-4 sm:mb-6 font-mono">$0<span className="text-base sm:text-lg text-muted-foreground font-sans font-normal">/mo</span></div>
@@ -23,10 +23,10 @@ export default function Pricing() {
               <li className="flex gap-2"><Check className="w-4 h-4 text-primary shrink-0" /> Standard rate limits (60 RPM)</li>
               <li className="flex gap-2"><Check className="w-4 h-4 text-primary shrink-0" /> Community support</li>
             </ul>
-            <button className="w-full py-2 bg-foreground text-background rounded-md font-medium text-sm hover:bg-foreground/90 transition-colors">Get Started</button>
+            <button className="w-full py-2.5 bg-foreground text-background rounded-md font-medium text-sm hover:bg-foreground/90 transition-colors">Get Started</button>
           </div>
           
-          <div className="p-6 sm:p-8 rounded-xl border-2 border-primary bg-primary/5 flex flex-col relative">
+          <div className="p-5 sm:p-8 rounded-xl border-2 border-primary bg-primary/5 flex flex-col relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Most Popular</div>
             <h3 className="text-xl sm:text-2xl font-bold mb-2">Pro</h3>
             <p className="text-muted-foreground text-sm mb-6 h-10">For startups and professional developers.</p>
@@ -37,10 +37,10 @@ export default function Pricing() {
               <li className="flex gap-2"><Check className="w-4 h-4 text-primary shrink-0" /> Priority routing</li>
               <li className="flex gap-2"><Check className="w-4 h-4 text-primary shrink-0" /> Optional: Bring Your Own Key (BYOK)</li>
             </ul>
-            <button className="w-full py-2 bg-primary text-primary-foreground rounded-md font-medium text-sm hover:bg-primary/90 transition-colors">Upgrade to Pro</button>
+            <button className="w-full py-2.5 bg-primary text-primary-foreground rounded-md font-medium text-sm hover:bg-primary/90 transition-colors">Upgrade to Pro</button>
           </div>
 
-          <div className="p-6 sm:p-8 rounded-xl border border-border bg-card flex flex-col">
+          <div className="p-5 sm:p-8 rounded-xl border border-border bg-card flex flex-col">
             <h3 className="text-xl sm:text-2xl font-bold mb-2">Enterprise</h3>
             <p className="text-muted-foreground text-sm mb-6 h-10">For large scale production workloads.</p>
             <div className="text-2xl sm:text-4xl font-bold mb-4 sm:mb-6 font-mono mt-2">Custom</div>
@@ -50,7 +50,7 @@ export default function Pricing() {
               <li className="flex gap-2"><Check className="w-4 h-4 text-primary shrink-0" /> SOC2 Report & SSO</li>
               <li className="flex gap-2"><Check className="w-4 h-4 text-primary shrink-0" /> Dedicated success manager</li>
             </ul>
-            <button className="w-full py-2 border border-border rounded-md font-medium text-sm hover:bg-muted transition-colors">Contact Sales</button>
+            <button className="w-full py-2.5 border border-border rounded-md font-medium text-sm hover:bg-muted transition-colors">Contact Sales</button>
           </div>
         </div>
       </section>

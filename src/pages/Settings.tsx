@@ -298,7 +298,7 @@ export default function Settings() {
     <div className="flex flex-col h-full animate-fade-in overflow-hidden">
       <header className="px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-4 border-b border-border">
         <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-4 sm:mb-6">Settings</h1>
-        <div className="flex gap-4 sm:gap-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -313,11 +313,11 @@ export default function Settings() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-muted/5">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-muted/5 safe-bottom">
         <div className="max-w-2xl">
           {activeTab === "profile" && (
             <div className="space-y-6">
-              <div className="flex items-center gap-6 mb-8">
+              <div className="flex flex-col items-start gap-4 mb-8 sm:flex-row sm:items-center sm:gap-6">
                 {user?.profileImageUrl ? (
                   <img
                     src={user.profileImageUrl}
@@ -496,7 +496,7 @@ export default function Settings() {
                           deleting ||
                           deleteConfirmText.trim().toLowerCase() !== DELETE_PHRASE
                         }
-                        className="inline-flex items-center gap-2 bg-destructive text-destructive-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-destructive/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center gap-2 bg-destructive text-destructive-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-destructive/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto"
                       >
                         {deleting ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -542,7 +542,7 @@ export default function Settings() {
           {activeTab === "org" && (
             <div className="space-y-6">
                <h3 className="text-lg font-bold">Team Members</h3>
-               <div className="border border-border rounded-lg overflow-hidden bg-card">
+                              <div className="border border-border rounded-lg overflow-x-auto bg-card">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-muted/30 text-muted-foreground font-mono text-xs uppercase">
                     <tr>
@@ -592,12 +592,12 @@ export default function Settings() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-1 bg-muted/40 rounded-md p-1">
+                  <div className="flex gap-1 bg-muted/40 rounded-md p-1 w-full sm:w-auto">
                     {(["light", "dark", "system"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => void updatePreference("theme", t)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                        className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 text-xs font-medium rounded transition-colors ${
                           preferences.theme === t
                             ? "bg-background text-foreground shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
@@ -620,7 +620,7 @@ export default function Settings() {
                   <button
                     onClick={() => void updatePreference("compactMode", !preferences.compactMode)}
                     disabled={savingPrefs}
-                    className={`relative w-11 h-6 rounded-full transition-colors touch-target ${
+                    className={`relative w-11 h-6 rounded-full transition-colors switch-hit ${
                       preferences.compactMode ? "bg-primary" : "bg-muted"
                     }`}
                     aria-label="Toggle compact mode"
@@ -683,7 +683,7 @@ export default function Settings() {
                   <button
                     onClick={() => void updatePreference("emailNotifications", !preferences.emailNotifications)}
                     disabled={savingPrefs}
-                    className={`relative w-11 h-6 rounded-full transition-colors touch-target ${
+                    className={`relative w-11 h-6 rounded-full transition-colors switch-hit ${
                       preferences.emailNotifications ? "bg-primary" : "bg-muted"
                     }`}
                     aria-label="Toggle email notifications"

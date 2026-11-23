@@ -55,21 +55,31 @@
   * {
     @apply border-border;
   }
+  html {
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground font-sans antialiased selection:bg-primary/30;
+    min-height: 100vh;
+    min-height: 100dvh;
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+    overflow-x: clip;
+    overflow-wrap: break-word;
+  }
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  img, video, canvas {
+    max-width: 100%;
   }
 
   /* Mobile touch optimizations */
   button, a, [role="button"] {
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-  }
-
-  /* Prevent iOS zoom on inputs */
-  input, select, textarea {
-    font-size: 16px !important;
+    touch-action: manipulation;
   }
   html.dark {
     color-scheme: dark;
@@ -116,9 +126,27 @@
   }
 }
 
-/* Mobile-safe tap targets */
+/* Mobile-safe tap targets. Never apply this to inline links: a 44px min
+   height on every <a> wrecks paragraph rhythm and footer spacing. */
 @media (max-width: 768px) {
-  button, a, [role="button"], input, select {
+  input, select, textarea {
+    /* 16px stops iOS from zooming the page when a field gets focus. */
+    font-size: 16px !important;
+  }
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  input[type="range"] {
+    min-height: 32px;
+  }
+
+  /* Icon-only controls need a full-size hit area; text controls get their
+     height from their own padding. */
+  button:has(> svg:only-child),
+  a:has(> svg:only-child),
+  [role="button"]:has(> svg:only-child) {
     min-height: 44px;
     min-width: 44px;
   }
@@ -127,14 +155,61 @@
     min-height: 44px;
     min-width: 44px;
   }
+
+  /* Footer links are stacked navigation, so give them a comfortable hit area. */
+  footer a {
+    display: inline-block;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+  }
 }
 
-/* Safe area padding for mobile devices with notches */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0);
+/* Keep in-page anchors clear of the sticky marketing header. */
+section[id],
+h1[id] {
+  scroll-margin-top: 5rem;
+}
+
+/* Actions revealed on hover on desktop must stay visible on touch devices. */
+@media (hover: none), (pointer: coarse) {
+  .touch-actions {
+    opacity: 1 !important;
+  }
+}
+
+/* Keeps compact switch tracks visually small while giving them a 44px-tall
+   touch area on phones. */
+.switch-hit::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -10px;
+  bottom: -10px;
+}
+
+/* App shell viewport with a fallback for browsers without dynamic units. */
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+.app-viewport {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+/* Safe area padding for mobile devices with notches. Bottom padding only
+   applies on mobile so desktop layouts keep their own spacing. */
+@media (max-width: 768px) {
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  }
 }
 .safe-top {
-  padding-top: env(safe-area-inset-top, 0);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* Compact mode - reduces spacing and font sizes for denser layouts */
@@ -442,5 +517,22 @@ html.compact ::-webkit-scrollbar {
   .mask-fade-y {
     -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
     mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Compact mode must not shrink mobile form fields below 16px, or iOS will
+   zoom the page whenever a field is focused. */
+@media (max-width: 768px) {
+  html.compact input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  html.compact select,
+  html.compact textarea {
+    font-size: 16px !important;
   }
 }
