@@ -122,7 +122,15 @@ function loadSettings(): ChatSettings {
   if (typeof window === "undefined") return defaults;
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...defaults, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = { ...defaults, ...JSON.parse(raw) } as ChatSettings;
+      // Drop model ids that no longer exist in the catalog (e.g. after the
+      // Pollinations migration) so stale local settings can't break chat.
+      if (!models.some((m) => m.id === saved.modelId)) {
+        saved.modelId = DEFAULT_MODEL;
+      }
+      return saved;
+    }
   } catch {}
   return defaults;
 }
