@@ -27,12 +27,14 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// server/app.ts
-var app_exports = {};
-__export(app_exports, {
-  createOrbitronApp: () => createOrbitronApp
+// server/lambda.ts
+var lambda_exports = {};
+__export(lambda_exports, {
+  getApp: () => getApp
 });
-module.exports = __toCommonJS(app_exports);
+module.exports = __toCommonJS(lambda_exports);
+
+// server/app.ts
 var import_express = __toESM(require("express"), 1);
 
 // server/chat.ts
@@ -3677,7 +3679,21 @@ async function createOrbitronApp(options = {}) {
   }
   return app;
 }
+
+// server/lambda.ts
+var appPromise = null;
+function getApp() {
+  if (!appPromise) appPromise = createOrbitronApp({ serveStatic: false });
+  return appPromise;
+}
+if (process.env.SERVICE_PORT) {
+  getApp().then((app) => {
+    app.listen(Number(process.env.SERVICE_PORT), "0.0.0.0", () => {
+      console.log(`Orbitron lambda listening on ${process.env.SERVICE_PORT}`);
+    });
+  });
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  createOrbitronApp
+  getApp
 });
