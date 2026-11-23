@@ -414,3 +414,33 @@ html.compact ::-webkit-scrollbar {
   width: 4px !important;
   height: 4px !important;
 }
+
+/* Model catalog (merged from Oribitron) */
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/[0.07] bg-white/[0.02] backdrop-blur-sm;
+  }
+  .hairline {
+    @apply border-white/[0.07];
+  }
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground;
+  }
+  .text-glow {
+    text-shadow: 0 0 32px hsl(38 96% 56% / 0.45);
+  }
+}
+@layer utilities {
+  .bg-grid-faint {
+    background-image:
+      linear-gradient(to right, hsl(0 0% 100% / 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(0 0% 100% / 0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 75%);
+  }
+  .mask-fade-y {
+    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+}

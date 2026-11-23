@@ -18,6 +18,10 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import SharedChat from "./pages/SharedChat";
 import NotFound from "./pages/NotFound";
+import CatalogModels from "./pages/catalog/Models";
+import CatalogCompare from "./pages/catalog/Compare";
+import CatalogCalculator from "./pages/catalog/Calculator";
+import CatalogModelDetail from "./pages/catalog/ModelDetail";
 import { models } from "./data/models";
 import { ProviderIcon } from "./components/ProviderIcon";
 
@@ -108,6 +112,10 @@ export default function App() {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/status" element={<Status />} />
+          <Route path="/explore" element={<CatalogModels />} />
+          <Route path="/explore/compare" element={<CatalogCompare />} />
+          <Route path="/explore/calculator" element={<CatalogCalculator />} />
+          <Route path="/explore/:slug" element={<CatalogModelDetail />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route element={<AppLayout />}>

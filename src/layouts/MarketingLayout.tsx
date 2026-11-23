@@ -50,6 +50,7 @@ export function MarketingLayout() {
               SWITCHBOARD
             </Link>
             <nav className="hidden md:flex items-center gap-4 sm:gap-6 text-sm font-medium">
+              <Link to="/explore" className="text-muted-foreground hover:text-foreground transition-colors">Explore</Link>
               <Link to="/models" className="text-muted-foreground hover:text-foreground transition-colors">Models</Link>
               <Link to="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
               <Link to="/docs" className="text-muted-foreground hover:text-foreground transition-colors">Docs</Link>
@@ -106,7 +107,10 @@ export function MarketingLayout() {
           <div>
             <h4 className="font-mono text-sm font-bold mb-4">Product</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/models" className="hover:text-foreground">Models</Link></li>
+              <li><Link to="/explore" className="hover:text-foreground">Model Index</Link></li>
+              <li><Link to="/explore/compare" className="hover:text-foreground">Compare</Link></li>
+              <li><Link to="/explore/calculator" className="hover:text-foreground">Cost Calculator</Link></li>
+              <li><Link to="/models" className="hover:text-foreground">Gateway Models</Link></li>
               <li><Link to="/pricing" className="hover:text-foreground">Pricing</Link></li>
               <li><Link to="/docs" className="hover:text-foreground">Documentation</Link></li>
             </ul>

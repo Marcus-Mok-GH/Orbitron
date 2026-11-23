@@ -1,0 +1,329 @@
+/**
+ * Curated dataset of frontier and open-weight LLMs, compiled from public
+ * sources (model cards, lab announcements, published evaluations) — last
+ * reviewed October 2026. Figures are directional snapshots, not guarantees;
+ * verify current specs with the provider before production use.
+ */
+
+export const LAST_UPDATED = "October 2026";
+
+export type Capability =
+  | "reasoning"
+  | "coding"
+  | "agentic"
+  | "tools"
+  | "vision"
+  | "audio"
+  | "video"
+  | "long-context"
+  | "multilingual"
+  | "computer-use";
+
+export const CAPABILITY_LABELS: Record<Capability, string> = {
+  reasoning: "Reasoning",
+  coding: "Coding",
+  agentic: "Agentic",
+  tools: "Tool use",
+  vision: "Vision",
+  audio: "Audio",
+  video: "Video",
+  "long-context": "Long context",
+  multilingual: "Multilingual",
+  "computer-use": "Computer use",
+};
+
+export type BenchmarkId =
+  | "swebench"
+  | "swebenchPro"
+  | "terminalBench"
+  | "gpqa"
+  | "aime"
+  | "arcAgi2"
+  | "hle"
+  | "mmluPro"
+  | "arenaElo";
+
+export interface BenchmarkMeta {
+  label: string;
+  description: string;
+  unit: "%" | "Elo";
+}
+
+export const BENCHMARKS: Record<BenchmarkId, BenchmarkMeta> = {
+  swebench: {
+    label: "SWE-bench Verified",
+    description: "Real GitHub issues resolved — the coding gold standard.",
+    unit: "%",
+  },
+  swebenchPro: {
+    label: "SWE-bench Pro",
+    description: "Contamination-resistant successor to SWE-bench Verified.",
+    unit: "%",
+  },
+  terminalBench: {
+    label: "Terminal-Bench 2.1",
+    description: "Agentic terminal workflows end to end.",
+    unit: "%",
+  },
+  gpqa: {
+    label: "GPQA Diamond",
+    description: "PhD-level science reasoning; the main frontier differentiator.",
+    unit: "%",
+  },
+  aime: {
+    label: "AIME 2025",
+    description: "Olympiad-level math problems.",
+    unit: "%",
+  },
+  arcAgi2: {
+    label: "ARC-AGI-2",
+    description: "Abstract pattern reasoning — fluid intelligence, not recall.",
+    unit: "%",
+  },
+  hle: {
+    label: "Humanity's Last Exam",
+    description: "Beyond-PhD questions from domain experts.",
+    unit: "%",
+  },
+  mmluPro: {
+    label: "MMLU-Pro",
+    description: "Broad graduate-level knowledge across 14 domains.",
+    unit: "%",
+  },
+  arenaElo: {
+    label: "Arena Elo (text)",
+    description: "Human preference rating from LMArena battles.",
+    unit: "Elo",
+  },
+};
+
+export interface Provider {
+  id: string;
+  name: string;
+  short: string;
+  color: string;
+  region: string;
+  blurb: string;
+}
+
+export const PROVIDERS: Provider[] = [
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    short: "AN",
+    color: "#E0784F",
+    region: "United States",
+    blurb: "Safety-focused frontier lab behind the Claude family and a four-tier lineup.",
+  },
+  {
+    id: "openai",
+    name: "OpenAI",
+    short: "OA",
+    color: "#10A37F",
+    region: "United States",
+    blurb: "The GPT-5 family, Codex, and the platform that started the generative AI boom.",
+  },
+  {
+    id: "google",
+    name: "Google DeepMind",
+    short: "GD",
+    color: "#5E9EFF",
+    region: "United States / UK",
+    blurb: "Gemini models: natively multimodal, million-token context, aggressive shipping pace.",
+  },
+  {
+    id: "xai",
+    name: "xAI",
+    short: "XA",
+    color: "#C7D2E5",
+    region: "United States",
+    blurb: "Grok models with multi-agent architectures and a post-Cursor coding focus.",
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    short: "DS",
+    color: "#4D6BFE",
+    region: "China",
+    blurb: "MIT-licensed MoE models that reset the economics of frontier reasoning.",
+  },
+  {
+    id: "qwen",
+    name: "Alibaba · Qwen",
+    short: "QW",
+    color: "#B78CF9",
+    region: "China",
+    blurb: "The most prolific open-weight family, with dedicated vision and coder lines.",
+  },
+  {
+    id: "zhipu",
+    name: "Zhipu AI · Z.ai",
+    short: "GL",
+    color: "#38BDF8",
+    region: "China",
+    blurb: "GLM models with MIT weights and open-weight ARC-AGI leadership.",
+  },
+  {
+    id: "moonshot",
+    name: "Moonshot AI",
+    short: "KM",
+    color: "#34D399",
+    region: "China",
+    blurb: "Kimi: open-weight agentic and coding models built for long tool-use loops.",
+  },
+  {
+    id: "minimax",
+    name: "MiniMax",
+    short: "MM",
+    color: "#F472B6",
+    region: "China",
+    blurb: "Agent-first models holding open-weight records on SWE-bench.",
+  },
+  {
+    id: "mistral",
+    name: "Mistral AI",
+    short: "MI",
+    color: "#FBBF24",
+    region: "France",
+    blurb: "European lab shipping Apache-2.0 weights for EU-resident and on-prem deploys.",
+  },
+  {
+    id: "meta",
+    name: "Meta",
+    short: "ME",
+    color: "#0866FF",
+    region: "United States",
+    blurb: "Llama 4 MoE models — including the longest context window ever shipped.",
+  },
+  {
+    id: "nvidia",
+    name: "NVIDIA",
+    short: "NV",
+    color: "#76B900",
+    region: "United States",
+    blurb: "Nemotron hybrid Mamba-Transformer models tuned for agent throughput.",
+  },
+  {
+    id: "pollinations",
+    name: "Pollinations AI",
+    short: "PN",
+    color: "#F472B6",
+    region: "Global",
+    blurb: "Free, open-ended inference endpoint for community and experimental model access.",
+  },
+];
+
+const FREE_TIER_NOTE = "Free tier via Pollinations AI; typically $0/mo on list API pricing.";
+
+
+export type Modality = "text" | "image" | "audio" | "video" | "pdf";
+
+export interface Model {
+  slug: string;
+  name: string;
+  providerId: string;
+  released: string; // YYYY-MM
+  contextWindow: number;
+  maxOutput: number;
+  cutoff: string;
+  /** API list price per 1M tokens; null when the model is self-hosted only. */
+  pricing: { input: number; output: number; cache?: number; note?: string } | null;
+  openWeights: boolean;
+  license: string;
+  params?: string;
+  architecture?: string;
+  modalities: Modality[];
+  capabilities: Capability[];
+  benchmarks: Partial<Record<BenchmarkId, number>>;
+  summary: string;
+  highlights: string[];
+  bestFor: string[];
+  featured?: boolean;
+}
+
+export const MODELS: Model[] = [
+  {
+    slug: "community/yoanndev90-vercel-nemotron-3-5-lightning-free",
+    name: "Nemotron 3.5 Lightning",
+    providerId: "pollinations",
+    released: "2026-11",
+    contextWindow: 1_048_576,
+    maxOutput: 16_384,
+    cutoff: "2026-05",
+    pricing: { input: 0, output: 0, note: FREE_TIER_NOTE },
+    openWeights: false,
+    license: "Free / research use",
+    params: "~3.5B",
+    architecture: "MoE",
+    modalities: ["text"],
+    capabilities: ["coding", "reasoning", "long-context"],
+    benchmarks: {
+      swebench: 43.2,
+      gpqa: 61.8,
+    },
+    summary:
+      "Community-hosted free tier of Vercel’s Nemotron 3.5 Lightning, exposed through Pollinations AI for low-latency inference at no API cost.",
+    highlights: [
+      "Free inference through Pollinations AI with no API key required for the base tier.",
+      "1M-token context keeps longer code and chat sessions in a single request.",
+      "MoE layout favors speed and endpoint throughput over largest-ever parameter counts.",
+    ],
+    bestFor: ["quick prototypes", "free experimentation", "lightweight coding assistants"],
+  },
+  {
+    slug: "minimax/m3-1-flash",
+    name: "MiniMax M3.1 Flash",
+    providerId: "minimax",
+    released: "2026-11",
+    contextWindow: 262_144,
+    maxOutput: 8_192,
+    cutoff: "2026-09",
+    pricing: { input: 0.20, output: 0.80, note: "Playground/preview pricing for the flash tier." },
+    openWeights: false,
+    license: "Proprietary API",
+    params: "~8B",
+    architecture: "MoE",
+    modalities: ["text"],
+    capabilities: ["coding", "agentic", "reasoning"],
+    benchmarks: {
+      swebench: 48.5,
+      gpqa: 64.3,
+    },
+    summary:
+      "MiniMax Flash-class model for low-latency agent loops and coding helpers, with competitive benchmark numbers at a much lower price point than its frontier lineup.",
+    highlights: [
+      "Flash-tier pricing makes high-volume agent and coding usage far cheaper than frontier MiniMax models.",
+      "Strong SWE-bench and GPQA numbers for a sub-flash-class model.",
+      "Short-window MoE built for fast tool-use and multi-step agent loops.",
+    ],
+    bestFor: ["high-volume agents", "cheap coding helpers", "batch tool use"],
+  },
+];
+
+export function getProvider(id: string): Provider | undefined {
+  return PROVIDERS.find((p) => p.id === id);
+}
+
+export function getModel(slug: string | undefined): Model | undefined {
+  return MODELS.find((m) => m.slug === slug);
+}
+
+export function byProvider(providerId: string): Model[] {
+  return MODELS.filter((m) => m.providerId === providerId);
+}
+
+export function featuredModels(): Model[] {
+  return MODELS.filter((m) => m.featured);
+}
+
+export function similarModels(_model: Model, _count = 3): Model[] {
+  return [];
+}
+
+export const STATS = {
+  modelCount: MODELS.length,
+  providerCount: PROVIDERS.length,
+  openWeightCount: MODELS.filter((m) => m.openWeights).length,
+  maxContext: Math.max(...MODELS.map((m) => m.contextWindow), 0),
+  latestRelease: [...MODELS.map((m) => m.released)].sort().slice(-1)[0] ?? "",
+};
