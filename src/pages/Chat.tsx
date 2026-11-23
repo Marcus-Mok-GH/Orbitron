@@ -79,7 +79,7 @@ interface Conversation {
 const STORAGE_KEY = "switchboard.conversations.v1";
 const SETTINGS_KEY = "switchboard.chatSettings.v1";
 
-const DEFAULT_MODEL = "openai-fast";
+const DEFAULT_MODEL = "openai/gpt-5.4-nano";
 
 /** Read the displayable text from a message — works for both new (blocks) and
  * legacy (content) messages. */

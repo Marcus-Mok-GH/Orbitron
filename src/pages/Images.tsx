@@ -68,7 +68,7 @@ function getDisplayUrl(img: GeneratedImage): string {
 // a library like squoosh or server-side conversion would be needed.
 
 type Size = "1024x1024" | "1024x1536" | "1536x1024" | "auto";
-type ImageModelId = "gpt-image-1" | "gemini-2.5-flash-image" | "sana";
+type ImageModelId = "flux-schnell" | "flux-pro" | "z-image-turbo";
 
 interface ImageModelInfo {
   id: ImageModelId;
@@ -80,11 +80,25 @@ interface ImageModelInfo {
 
 const IMAGE_MODELS: ImageModelInfo[] = [
   {
-    id: "sana",
-    label: "Sana",
+    id: "flux-schnell",
+    label: "Flux Schnell",
     provider: "Pollinations",
     supportsSize: true,
-    blurb: "~$0.01/image · budget pick",
+    blurb: "~$0.01/image · fast budget pick",
+  },
+  {
+    id: "flux-pro",
+    label: "Flux 1.1 Pro",
+    provider: "Pollinations",
+    supportsSize: true,
+    blurb: "~$0.03/image · premium quality",
+  },
+  {
+    id: "z-image-turbo",
+    label: "Z-Image Turbo",
+    provider: "Pollinations",
+    supportsSize: true,
+    blurb: "~$0.01/image · turbo alternative",
   },
 ];
 
@@ -132,7 +146,7 @@ export default function Images() {
     } catch {
       /* ignore */
     }
-    return "gpt-image-1";
+    return "flux-schnell";
   });
   const [quality, setQuality] = useState<QualityPreset>(() => {
     try {

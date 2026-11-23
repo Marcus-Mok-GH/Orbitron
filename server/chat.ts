@@ -35,7 +35,7 @@ const openai = new OpenAI({
 // endpoint (text.pollinations.ai/openai) authenticated with a Bearer key.
 export const pollinations = new OpenAI({
   apiKey: process.env.POLLINATIONS_API_KEY ?? "unset",
-  baseURL: "https://text.pollinations.ai/openai",
+  baseURL: "https://gen.pollinations.ai/v1",
 });
 
 const anthropic = new Anthropic({
@@ -95,9 +95,9 @@ export const geminiMap: Record<string, string> = {
   "gemini-2.0-flash-thinking": "gemini-2.0-flash-thinking",
 };
 
-export const pollinationsMap: Record<string, string> = {
-  "openai-fast": "openai-fast",
-};
+export const pollinationsMap: Record<string, string> = Object.fromEntries(
+  catalog.map((m) => [m.id, m.id]),
+);
 
 export interface ToolCallSpec {
   id: string;

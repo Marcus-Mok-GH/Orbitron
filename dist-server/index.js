@@ -8,24 +8,451 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 
 // src/data/models.ts
-var providers = ["Pollinations"];
+var providers = ["OpenAI", "Meta", "DeepSeek", "MiniMax", "Mistral", "Moonshot AI", "NVIDIA", "Qwen", "xAI", "Microsoft", "Z.ai", "Stealth", "Pollinations", "Black Forest Labs", "Tongyi MAI"];
 var models = [
-  // All models below are served through the Pollinations unified AI API
-  // (text.pollinations.ai, OpenAI-compatible) using the configured
-  // POLLINATIONS_API_KEY. Verified against the live gateway: these are the
-  // models the Classic API serves for this key. Premium models not listed
-  // here return FREE_LIMIT (402) on the current tier.
   {
-    id: "openai-fast",
+    id: "openai/gpt-5.4-nano",
+    name: "GPT-5.4 Nano",
+    provider: "OpenAI",
+    contextWindow: 4e5,
+    inputPrice: 0.15,
+    outputPrice: 0.9375,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Get quick, low-cost answers to everyday questions about text or images."
+  },
+  {
+    id: "openai/gpt-6.1-terra",
+    name: "GPT-6.1 Terra",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 0.75,
+    outputPrice: 3.75,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Interpret screenshots quickly and use visual reasoning to plan computer tasks."
+  },
+  {
+    id: "minimax/minimax-m3.1-flash",
+    name: "MiniMax M3.1 Flash",
+    provider: "MiniMax",
+    contextWindow: 1048576,
+    inputPrice: 0.15,
+    outputPrice: 0.6,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Combine images, tools, and large amounts of code in a single programming task."
+  },
+  {
+    id: "moonshotai/kimi-k3.1-pro",
+    name: "Kimi K3.1 Pro",
+    provider: "Moonshot AI",
+    contextWindow: 1048576,
+    inputPrice: 1.725,
+    outputPrice: 8.625,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Use screenshots to guide code changes across a large project."
+  },
+  {
+    id: "deepseek/deepseek-v4.1-flash-1017",
+    name: "DeepSeek V4.1 Flash 1017",
+    provider: "DeepSeek",
+    contextWindow: 1048576,
+    inputPrice: 0.15,
+    outputPrice: 0.6,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Test coding, image analysis, and tool use against a fixed model release."
+  },
+  {
+    id: "meta/muse-spark-open",
+    name: "Muse Spark Open",
+    provider: "Meta",
+    contextWindow: 1048576,
+    inputPrice: 1.25,
+    outputPrice: 4.25,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Adjust the reasoning effort while working on large coding projects with tools."
+  },
+  {
+    id: "openai/gpt-6.1-sol",
+    name: "GPT-6.1 Sol",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 1.5,
+    outputPrice: 7.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Get faster responses on demanding coding and tool tasks with reasoning close to the Astra tier."
+  },
+  {
+    id: "openai/gpt-5.3-codex",
+    name: "GPT-5.3 Codex",
+    provider: "OpenAI",
+    contextWindow: 4e5,
+    inputPrice: 1.3125,
+    outputPrice: 10.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Trace a bug through a codebase and plan a fix across multiple files."
+  },
+  {
+    id: "openai/gpt-6-luna",
+    name: "GPT-6 Luna",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 0.075,
+    outputPrice: 0.375,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Handle focused, high-volume tasks efficiently, such as extracting details from messages and images."
+  },
+  {
+    id: "openai/gpt-6-sol",
+    name: "GPT-6 Sol",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 1.5,
+    outputPrice: 7.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Balance reasoning depth and efficiency for complex coding tasks that need several tool calls."
+  },
+  {
+    id: "deepseek/deepseek-v4.1-flash",
+    name: "DeepSeek V4.1 Flash",
+    provider: "DeepSeek",
+    contextWindow: 1048576,
+    inputPrice: 0.15,
+    outputPrice: 0.6,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Write code, inspect screenshots, and call tools to track down a problem."
+  },
+  {
+    id: "openai/gpt-6-astra",
+    name: "GPT-6 Astra",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 7.5,
+    outputPrice: 37.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Use frontier reasoning to debug complex code and work through visual tasks with tools."
+  },
+  {
+    id: "z-ai/glm-5.3-flash",
+    name: "GLM-5.3-Flash",
+    provider: "Z.ai",
+    contextWindow: 1048576,
+    inputPrice: 0.15,
+    outputPrice: 0.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Analyze images alongside long documents at low cost, with room for a million tokens."
+  },
+  {
+    id: "nvidia/nemotron-3.5-lightning",
+    name: "Nemotron 3.5 Lightning",
+    provider: "NVIDIA",
+    contextWindow: 262144,
+    inputPrice: 0.045,
+    outputPrice: 0.165,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools"],
+    description: "Process a high volume of text requests quickly with tool calls and structured results."
+  },
+  {
+    id: "z-ai/glm-5.3",
+    name: "GLM-5.3",
+    provider: "Z.ai",
+    contextWindow: 1048576,
+    inputPrice: 1.4,
+    outputPrice: 4.4,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools"],
+    description: "Work through extended software engineering tasks with a model that reasons before every answer."
+  },
+  {
+    id: "nvidia/nemotron-3-ultra",
+    name: "Nemotron 3 Ultra",
+    provider: "NVIDIA",
+    contextWindow: 262144,
+    inputPrice: 0.495,
+    outputPrice: 1.98,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools"],
+    description: "Investigate research questions and programming problems across several rounds of tool use."
+  },
+  {
+    id: "moonshotai/kimi-k3",
+    name: "Kimi K3",
+    provider: "Moonshot AI",
+    contextWindow: 1048576,
+    inputPrice: 3,
+    outputPrice: 15,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Work through programming tasks with images, code, and external tools."
+  },
+  {
+    id: "openai/gpt-oss-20b",
     name: "GPT-OSS 20B",
-    provider: "Pollinations",
+    provider: "OpenAI",
     contextWindow: 131072,
     inputPrice: 0.05,
-    outputPrice: 0.15,
-    throughput: 200,
-    latency: 180,
+    outputPrice: 0.18,
+    throughput: 150,
+    latency: 300,
     modalities: ["text", "tools"],
-    description: "OpenAI's open-weight GPT-OSS 20B served by Pollinations. Fast, tool-capable everyday workhorse with generous free usage."
+    description: "Work through written logic problems with a compact model whose weights are publicly available."
+  },
+  {
+    id: "x-ai/grok-4.6",
+    name: "Grok 4.6",
+    provider: "xAI",
+    contextWindow: 2e5,
+    inputPrice: 1.5,
+    outputPrice: 4.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Analyze source material for research or work through a programming question."
+  },
+  {
+    id: "openai/gpt-5.6-luna",
+    name: "GPT-5.6 Luna",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 0.15,
+    outputPrice: 0.9,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Classify screenshots or extract details from images quickly and at low cost."
+  },
+  {
+    id: "openai/gpt-5.6-sol",
+    name: "GPT-5.6 Sol",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 3,
+    outputPrice: 15,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Use frontier reasoning to connect evidence across long documents and images."
+  },
+  {
+    id: "openai/gpt-5.6-terra",
+    name: "GPT-5.6 Terra",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 1.5,
+    outputPrice: 9,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Balance reasoning depth and speed when analyzing text and images together."
+  },
+  {
+    id: "minimax/minimax-m3",
+    name: "MiniMax M3",
+    provider: "MiniMax",
+    contextWindow: 524288,
+    inputPrice: 0.3,
+    outputPrice: 1.2,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Work on a coding project with room for many files and follow-up instructions at once."
+  },
+  {
+    id: "x-ai/grok-4.3",
+    name: "Grok 4.3",
+    provider: "xAI",
+    contextWindow: 2e5,
+    inputPrice: 0.9375,
+    outputPrice: 1.875,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Compare figures across reports, with images and long documents in the same request."
+  },
+  {
+    id: "openai/gpt-5.4-mini",
+    name: "GPT-5.4 Mini",
+    provider: "OpenAI",
+    contextWindow: 4e5,
+    inputPrice: 0.5625,
+    outputPrice: 3.375,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Get a quick explanation of a passage or image, with tool calls when needed."
+  },
+  {
+    id: "openai/gpt-5.5",
+    name: "GPT-5.5",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 3.75,
+    outputPrice: 22.5,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Break a complex question into steps and work through them before reaching an answer."
+  },
+  {
+    id: "meta/llama-3.3-70b-instruct",
+    name: "Llama 3.3 70B",
+    provider: "Meta",
+    contextWindow: 131072,
+    inputPrice: 0.5325,
+    outputPrice: 0.5325,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools"],
+    description: "Discuss a written passage, follow up with questions, or ask for a summary."
+  },
+  {
+    id: "moonshotai/kimi-k2.6",
+    name: "Kimi K2.6",
+    provider: "Moonshot AI",
+    contextWindow: 262e3,
+    inputPrice: 0.95,
+    outputPrice: 4,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Investigate multi-step questions about text and images with tools."
+  },
+  {
+    id: "mistralai/mistral-large-3",
+    name: "Mistral Large 3",
+    provider: "Mistral",
+    contextWindow: 256e3,
+    inputPrice: 0.375,
+    outputPrice: 1.125,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Write and revise text in multiple languages or ask questions about images."
+  },
+  {
+    id: "qwen/qwen3guard-gen-8b",
+    name: "Qwen3Guard 8B",
+    provider: "Qwen",
+    contextWindow: 32768,
+    inputPrice: 0,
+    outputPrice: 0,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text"],
+    description: "Check text for unsafe content to help moderate conversations."
+  },
+  {
+    id: "x-ai/grok-4.20",
+    name: "Grok 4.20",
+    provider: "xAI",
+    contextWindow: 262144,
+    inputPrice: 0.9375,
+    outputPrice: 1.875,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Chat about text or images and turn on deeper reasoning when needed."
+  },
+  {
+    id: "deepseek/deepseek-v4-flash",
+    name: "DeepSeek V4 Flash 0731",
+    provider: "DeepSeek",
+    contextWindow: 1048576,
+    inputPrice: 0.33,
+    outputPrice: 0.99,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools"],
+    description: "Get quick help with a programming question or a written logic problem."
+  },
+  {
+    id: "openai/gpt-5-nano",
+    name: "GPT-5 Nano",
+    provider: "OpenAI",
+    contextWindow: 4e5,
+    inputPrice: 0.0375,
+    outputPrice: 0.3,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Label messages or extract names quickly and at low cost for simple, high-volume tasks."
+  },
+  {
+    id: "openai/gpt-5.4",
+    name: "GPT-5.4",
+    provider: "OpenAI",
+    contextWindow: 105e4,
+    inputPrice: 1.875,
+    outputPrice: 11.25,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools", "vision"],
+    description: "Weigh evidence from long documents and images to work through difficult questions."
+  },
+  {
+    id: "stealth/glyph-cluster",
+    name: "Glyph Cluster (Stealth)",
+    provider: "Stealth",
+    contextWindow: 256e3,
+    inputPrice: 0,
+    outputPrice: 0,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text", "tools"],
+    description: "Explore long coding problems with tools. Zero data retention is unavailable, and prompts and replies may be retained and used for training."
+  },
+  {
+    id: "community/pollinations-ai/floret",
+    name: "Floret",
+    provider: "Pollinations",
+    contextWindow: 128e3,
+    inputPrice: 0,
+    outputPrice: 0,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text"],
+    description: "Autonomous multimodal agent \u2014 one prompt, any mix of text, image, video, audio, and search, returned as one response."
+  },
+  {
+    id: "community/pollinations-ai/polli",
+    name: "Polli",
+    provider: "Pollinations",
+    contextWindow: 128e3,
+    inputPrice: 0,
+    outputPrice: 0,
+    throughput: 150,
+    latency: 300,
+    modalities: ["text"],
+    description: "Pollinations.AI support assistant \u2014 it knows the platform's API, models, pricing, auth, and codebase inside out. Sharp, direct, and built for fast answers."
   }
 ];
 
@@ -1071,7 +1498,7 @@ var openai = new OpenAI({
 });
 var pollinations = new OpenAI({
   apiKey: process.env.POLLINATIONS_API_KEY ?? "unset",
-  baseURL: "https://text.pollinations.ai/openai"
+  baseURL: "https://gen.pollinations.ai/v1"
 });
 var anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? "unset",
@@ -1116,9 +1543,9 @@ var geminiMap = {
   "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
   "gemini-2.0-flash-thinking": "gemini-2.0-flash-thinking"
 };
-var pollinationsMap = {
-  "openai-fast": "openai-fast"
-};
+var pollinationsMap = Object.fromEntries(
+  models.map((m) => [m.id, m.id])
+);
 var MAX_TOOL_ITERATIONS = 4;
 var MAX_OUTPUT_TOKENS_HARD_CAP = 8192;
 var MAX_MESSAGES_PER_REQUEST = 200;
@@ -1747,13 +2174,18 @@ async function pingProvider(name, fn, timeoutMs = 8e3) {
 }
 var statusCache = null;
 var STATUS_TTL_MS = 3e4;
-var IMAGE_MODEL_IDS = ["gpt-image-1", "gemini-2.5-flash-image", "sana"];
+var IMAGE_MODEL_IDS = ["flux-schnell", "flux-pro", "z-image-turbo"];
 var IMAGE_PRICE_USD = {
-  "gpt-image-1": 0.04,
-  "gemini-2.5-flash-image": 0.039,
-  "sana": 0.01
+  "flux-schnell": 0.01,
+  "flux-pro": 0.03,
+  "z-image-turbo": 0.01
 };
 var IMAGE_PROMPT_MAX_LEN = 4e3;
+var IMAGE_GEN_MODEL = {
+  "flux-schnell": "black-forest-labs/flux.1-schnell",
+  "flux-pro": "black-forest-labs/flux.1.1-pro",
+  "z-image-turbo": "tongyi-mai/z-image-turbo"
+};
 var ACCOUNT_DELETE_MAX = 5;
 var ACCOUNT_DELETE_WINDOW_MS = 15 * 60 * 1e3;
 var accountDeleteAttempts = /* @__PURE__ */ new Map();
@@ -1925,7 +2357,7 @@ function registerApiRoutes(app) {
       prompt,
       size = "1024x1024",
       n = 1,
-      model = "gpt-image-1"
+      model = "flux-schnell"
     } = req.body || {};
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: { message: "prompt is required" } });
@@ -1960,62 +2392,34 @@ function registerApiRoutes(app) {
         }
       });
     }
+    let data;
     let imagesReturned = 0;
     let success = false;
     try {
-      let data;
-      if (modelId === "sana") {
-        const [width, height] = (size === "auto" ? "1024x1024" : size).split("x").map((n2) => Number.parseInt(n2, 10) || 1024);
-        const calls = Array.from(
-          { length: requestedN },
-          () => fetch(
-            `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&model=sana`,
-            {
-              headers: {
-                Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`
-              }
-            }
-          ).then(async (r) => {
-            if (!r.ok) {
-              throw new Error(`Pollinations image request failed (${r.status})`);
-            }
-            const buf = Buffer.from(await r.arrayBuffer());
-            return { b64_json: buf.toString("base64"), revised_prompt: null };
-          })
-        );
-        data = await Promise.all(calls);
-      } else if (modelId === "gemini-2.5-flash-image") {
-        const calls = Array.from(
-          { length: requestedN },
-          () => gemini2.models.generateContent({
-            model: "gemini-2.5-flash-image",
-            contents: prompt,
-            config: { responseModalities: ["IMAGE"] }
-          })
-        );
-        const results = await Promise.all(calls);
-        data = results.map((r) => {
-          const parts = r.candidates?.[0]?.content?.parts ?? [];
-          const imgPart = parts.find(
-            (p) => !!p?.inlineData?.data
-          );
-          return {
-            b64_json: imgPart?.inlineData.data ?? null,
-            revised_prompt: null
-          };
-        });
-      } else {
-        const response = await openai2.images.generate({
-          model: "gpt-image-1",
-          prompt,
-          size,
-          n: requestedN
-        });
-        data = (response.data ?? []).map((img) => ({
-          b64_json: img.b64_json ?? null,
-          revised_prompt: img.revised_prompt ?? null
-        }));
-      }
+      const genModel = IMAGE_GEN_MODEL[modelId];
+      const calls = Array.from(
+        { length: requestedN },
+        () => fetch("https://gen.pollinations.ai/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ model: genModel, prompt, n: 1 })
+        }).then(async (r) => {
+          if (!r.ok) {
+            const detail = await r.text().catch(() => "");
+            throw new Error(
+              `Image generation failed (${r.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`
+            );
+          }
+          const json = await r.json();
+          const first = json.data?.[0];
+          if (!first?.b64_json) throw new Error("Empty image response");
+          return { b64_json: first.b64_json, revised_prompt: null };
+        })
+      );
+      data = await Promise.all(calls);
       imagesReturned = data.filter((d) => d.b64_json).length;
       success = imagesReturned > 0;
       const totalMs = Date.now() - startTime;

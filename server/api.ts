@@ -96,7 +96,7 @@ interface ImageBody {
   model?: string;
 }
 
-const IMAGE_MODEL_IDS = ["gpt-image-1", "gemini-2.5-flash-image", "sana"] as const;
+const IMAGE_MODEL_IDS = ["flux-schnell", "flux-pro", "z-image-turbo"] as const;
 type ImageModelId = (typeof IMAGE_MODEL_IDS)[number];
 
 /**
@@ -106,16 +106,23 @@ type ImageModelId = (typeof IMAGE_MODEL_IDS)[number];
  * generate images for free because the credit reservation would compute to
  * zero and the post-hoc audit row would never debit anything.
  *
- * - gpt-image-1: $0.04 / 1024 medium-quality image (OpenAI list price).
- * - gemini-2.5-flash-image: $0.039 / image (Gemini "Nano Banana" list price).
+ * - flux-schnell: ~$0.01 / image (approx. Pollen price).
+ * - flux-pro: ~$0.03 / image (approx. Pollen price).
+ * - z-image-turbo: ~$0.01 / image (approx. Pollen price).
  */
 const IMAGE_PRICE_USD: Record<ImageModelId, number> = {
-  "gpt-image-1": 0.04,
-  "gemini-2.5-flash-image": 0.039,
-  "sana": 0.01,
+  "flux-schnell": 0.01,
+  "flux-pro": 0.03,
+  "z-image-turbo": 0.01,
 };
 
 const IMAGE_PROMPT_MAX_LEN = 4000;
+
+const IMAGE_GEN_MODEL: Record<ImageModelId, string> = {
+  "flux-schnell": "black-forest-labs/flux.1-schnell",
+  "flux-pro": "black-forest-labs/flux.1.1-pro",
+  "z-image-turbo": "tongyi-mai/z-image-turbo",
+};
 
 // In-memory sliding-window rate limiter for the account deletion endpoint.
 // Keyed by userId. We allow up to ACCOUNT_DELETE_MAX attempts per window;
@@ -311,7 +318,7 @@ export function registerApiRoutes(app: Express): void {
     }
   });
 
-  // POST /api/images — generate an image with OpenAI gpt-image-1
+  // POST /api/images — generate an image via the Pollinations unified API
   // Body: { prompt: string, size?: "1024x1024"|"1024x1536"|"1536x1024"|"auto", n?: number }
   // Returns: { data: [{ b64_json, revised_prompt }], model, latencyMs }
   app.post("/api/images", requireApiKey, async (req: Request, res: Response) => {
@@ -319,7 +326,7 @@ export function registerApiRoutes(app: Express): void {
       prompt,
       size = "1024x1024",
       n = 1,
-      model = "gpt-image-1",
+      model = "flux-schnell",
     } = (req.body || {}) as ImageBody;
 
     if (!prompt || typeof prompt !== "string") {
@@ -363,73 +370,39 @@ export function registerApiRoutes(app: Express): void {
       });
     }
 
+    let data: Array<{ b64_json: string | null; revised_prompt: string | null }>;
     let imagesReturned = 0;
     let success = false;
     try {
-      let data: Array<{ b64_json: string | null; revised_prompt: string | null }>;
-      if (modelId === "sana") {
-        // Pollinations sana — GET image endpoint returns a JPEG binary.
-        // One image per call; fan out for n>1. Size is parsed WxH directly.
-        const [width, height] = (size === "auto" ? "1024x1024" : size)
-          .split("x")
-          .map((n) => Number.parseInt(n, 10) || 1024);
-        const calls = Array.from({ length: requestedN }, () =>
-          fetch(
-            `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&model=sana`,
-            {
-              headers: {
-                Authorization: `Bearer ${
-                  process.env.POLLINATIONS_API_KEY ?? "unset"
-                }`,
-              },
-            },
-          ).then(async (r) => {
-            if (!r.ok) {
-              throw new Error(`Pollinations image request failed (${r.status})`);
-            }
-            const buf = Buffer.from(await r.arrayBuffer());
-            return { b64_json: buf.toString("base64"), revised_prompt: null };
-          }),
-        );
-        data = await Promise.all(calls);
-      } else if (modelId === "gemini-2.5-flash-image") {
-        // Gemini generates one image per call; fan out for n>1.
-        const calls = Array.from({ length: requestedN }, () =>
-          (gemini.models.generateContent as (a: unknown) => Promise<unknown>)({
-            model: "gemini-2.5-flash-image",
-            contents: prompt,
-            config: { responseModalities: ["IMAGE"] },
-          }),
-        );
-        const results = await Promise.all(calls);
-        data = results.map((r) => {
-          const parts =
-            (r as { candidates?: { content?: { parts?: unknown[] } }[] })
-              .candidates?.[0]?.content?.parts ?? [];
-          const imgPart = parts.find(
-            (p): p is { inlineData: { data: string } } =>
-              !!(p as { inlineData?: { data?: string } })?.inlineData?.data,
-          );
-          return {
-            b64_json: imgPart?.inlineData.data ?? null,
-            revised_prompt: null,
+      // Unified generation API (gen.pollinations.ai/v1/images/generations).
+      // One image per call; fan out for n>1.
+      const genModel = IMAGE_GEN_MODEL[modelId];
+      const calls = Array.from({ length: requestedN }, () =>
+        fetch("https://gen.pollinations.ai/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${
+              process.env.POLLINATIONS_API_KEY ?? "unset"
+            }`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: genModel, prompt, n: 1 }),
+        }).then(async (r) => {
+          if (!r.ok) {
+            const detail = await r.text().catch(() => "");
+            throw new Error(
+              `Image generation failed (${r.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`,
+            );
+          }
+          const json = (await r.json()) as {
+            data?: Array<{ b64_json?: string | null }>;
           };
-        });
-      } else {
-        // Default: OpenAI gpt-image-1
-        const response = await openai.images.generate({
-          model: "gpt-image-1",
-          prompt,
-          size,
-          n: requestedN,
-        });
-        data = (response.data ?? []).map((img) => ({
-          b64_json: img.b64_json ?? null,
-          revised_prompt:
-            (img as { revised_prompt?: string }).revised_prompt ?? null,
-        }));
-      }
-
+          const first = json.data?.[0];
+          if (!first?.b64_json) throw new Error("Empty image response");
+          return { b64_json: first.b64_json, revised_prompt: null };
+        }),
+      );
+      data = await Promise.all(calls);
       imagesReturned = data.filter((d) => d.b64_json).length;
       success = imagesReturned > 0;
       const totalMs = Date.now() - startTime;
