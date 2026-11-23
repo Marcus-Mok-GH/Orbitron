@@ -20,7 +20,7 @@ import {
   Wallet,
   PlusCircle,
 } from "lucide-react";
-import { models } from "../data/models";
+import { questModels as models } from "../data/models";
 import { Markdown } from "../components/Markdown";
 import { ProviderIcon } from "../components/ProviderIcon";
 

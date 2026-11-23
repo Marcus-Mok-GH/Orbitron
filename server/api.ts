@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
-import { models as catalog, providers } from "../src/data/models";
+import { questModels as catalog, providers } from "../src/data/models";
 import { requireAuth, requireApiKey } from "./auth";
 import {
   recordUsage,
@@ -178,13 +178,9 @@ export function registerApiRoutes(app: Express): void {
           config: { maxOutputTokens: 1 },
         }),
       ),      pingProvider("Pollinations", async () => {
-        // The text gateway only exposes generation endpoints; a models list
-        // GET is the cheapest authenticated probe.
-        const r = await fetch("https://text.pollinations.ai/models", {
-          headers: {
-            Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`,
-          },
-        });
+        // The models list needs no auth and is the cheapest health probe.
+        // Sending a dummy key here can trigger a needless 401.
+        const r = await fetch("https://gen.pollinations.ai/v1/models");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       }),

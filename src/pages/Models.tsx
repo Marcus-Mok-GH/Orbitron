@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, Filter, ArrowUpDown, Check, Sparkles, X } from "lucide-react";
-import { models, providers, Modality } from "../data/models";
+import { questModels as models, providers, Modality } from "../data/models";
 import { ProviderIcon } from "../components/ProviderIcon";
 
 const MODALITIES: Modality[] = ["text", "vision", "audio", "tools"];

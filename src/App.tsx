@@ -22,7 +22,7 @@ import CatalogModels from "./pages/catalog/Models";
 import CatalogCompare from "./pages/catalog/Compare";
 import CatalogCalculator from "./pages/catalog/Calculator";
 import CatalogModelDetail from "./pages/catalog/ModelDetail";
-import { models } from "./data/models";
+import { questModels as models } from "./data/models";
 import { ProviderIcon } from "./components/ProviderIcon";
 
 function CommandPalette() {

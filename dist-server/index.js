@@ -455,6 +455,46 @@ var models = [
     description: "Pollinations.AI support assistant \u2014 it knows the platform's API, models, pricing, auth, and codebase inside out. Sharp, direct, and built for fast answers."
   }
 ];
+var questModelIds = /* @__PURE__ */ new Set([
+  "openai/gpt-5.4-nano",
+  "openai/gpt-6.1-terra",
+  "minimax/minimax-m3.1-flash",
+  "moonshotai/kimi-k3.1-pro",
+  "deepseek/deepseek-v4.1-flash-1017",
+  "meta/muse-spark-open",
+  "openai/gpt-6.1-sol",
+  "openai/gpt-5.3-codex",
+  "openai/gpt-6-luna",
+  "openai/gpt-6-sol",
+  "deepseek/deepseek-v4.1-flash",
+  "openai/gpt-6-astra",
+  "z-ai/glm-5.3-flash",
+  "nvidia/nemotron-3.5-lightning",
+  "z-ai/glm-5.3",
+  "nvidia/nemotron-3-ultra",
+  "moonshotai/kimi-k3",
+  "openai/gpt-oss-20b",
+  "x-ai/grok-4.6",
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.6-sol",
+  "openai/gpt-5.6-terra",
+  "minimax/minimax-m3",
+  "x-ai/grok-4.3",
+  "openai/gpt-5.4-mini",
+  "openai/gpt-5.5",
+  "meta/llama-3.3-70b-instruct",
+  "moonshotai/kimi-k2.6",
+  "mistralai/mistral-large-3",
+  "qwen/qwen3guard-gen-8b",
+  "x-ai/grok-4.20",
+  "deepseek/deepseek-v4-flash",
+  "openai/gpt-5-nano",
+  "openai/gpt-5.4",
+  "stealth/glyph-cluster",
+  "community/pollinations-ai/floret",
+  "community/pollinations-ai/polli"
+]);
+var questModels = models.filter((m) => questModelIds.has(m.id));
 
 // server/auth.ts
 import { randomBytes, createHash } from "node:crypto";
@@ -1544,7 +1584,7 @@ var geminiMap = {
   "gemini-2.0-flash-thinking": "gemini-2.0-flash-thinking"
 };
 var pollinationsMap = Object.fromEntries(
-  models.map((m) => [m.id, m.id])
+  questModels.map((m) => [m.id, m.id])
 );
 var MAX_TOOL_ITERATIONS = 4;
 var MAX_OUTPUT_TOKENS_HARD_CAP = 8192;
@@ -1958,7 +1998,7 @@ function registerChatRoutes(app) {
         }
       });
     }
-    const catalogEntry = models.find((m) => m.id === modelId);
+    const catalogEntry = questModels.find((m) => m.id === modelId);
     if (!catalogEntry) {
       return res.status(400).json({
         error: { message: `Unsupported model: ${modelId}`, type: "invalid_request" }
@@ -2233,11 +2273,7 @@ function registerApiRoutes(app) {
         })
       ),
       pingProvider("Pollinations", async () => {
-        const r = await fetch("https://text.pollinations.ai/models", {
-          headers: {
-            Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`
-          }
-        });
+        const r = await fetch("https://gen.pollinations.ai/v1/models");
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
@@ -2256,7 +2292,7 @@ function registerApiRoutes(app) {
   app.get("/api/models", async (req, res) => {
     const providerFilter = typeof req.query.provider === "string" ? req.query.provider : null;
     const modalityFilter = typeof req.query.modality === "string" ? req.query.modality : null;
-    let data = models;
+    let data = questModels;
     if (providerFilter) {
       const lower = providerFilter.toLowerCase();
       data = data.filter((m) => m.provider.toLowerCase() === lower);
@@ -2291,7 +2327,7 @@ function registerApiRoutes(app) {
     });
   });
   app.get("/api/models/:id", async (req, res) => {
-    const model = models.find((m) => m.id === req.params.id);
+    const model = questModels.find((m) => m.id === req.params.id);
     if (!model) {
       return res.status(404).json({ error: { message: `Model not found: ${req.params.id}` } });
     }
@@ -2739,19 +2775,19 @@ function anthropicCompatMessagesToChat(system, messages) {
 
 // server/anthropicCompat.ts
 function resolveCatalogId(modelParam) {
-  if (models.find((m) => m.id === modelParam)) return modelParam;
+  if (questModels.find((m) => m.id === modelParam)) return modelParam;
   const dotted = modelParam.replace(
     /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
     "$1$2.$3$4"
   );
-  if (models.find((m) => m.id === dotted)) return dotted;
+  if (questModels.find((m) => m.id === dotted)) return dotted;
   const undated = modelParam.replace(/-(\d{8})$/, "");
   if (undated !== modelParam) {
     const undatedDotted = undated.replace(
       /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
       "$1$2.$3$4"
     );
-    if (models.find((m) => m.id === undatedDotted)) return undatedDotted;
+    if (questModels.find((m) => m.id === undatedDotted)) return undatedDotted;
   }
   return null;
 }
@@ -2804,7 +2840,7 @@ function registerAnthropicCompatRoutes(app) {
         }
       });
     }
-    const catalogEntry = models.find((m) => m.id === catalogId);
+    const catalogEntry = questModels.find((m) => m.id === catalogId);
     if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap) && !(catalogId in pollinationsMap)) {
       return res.status(400).json({
         type: "error",
@@ -3238,19 +3274,19 @@ async function dispatchToRunner(args) {
 // server/openaiCompat.ts
 import { randomBytes as randomBytes5 } from "node:crypto";
 function resolveCatalogId2(modelParam) {
-  if (models.find((m) => m.id === modelParam)) return modelParam;
+  if (questModels.find((m) => m.id === modelParam)) return modelParam;
   const dotted = modelParam.replace(
     /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
     "$1$2.$3$4"
   );
-  if (models.find((m) => m.id === dotted)) return dotted;
+  if (questModels.find((m) => m.id === dotted)) return dotted;
   const undated = modelParam.replace(/-(\d{8})$/, "");
   if (undated !== modelParam) {
     const undatedDotted = undated.replace(
       /^(claude-[a-z]+-)(\d+)-(\d+)(.*)$/,
       "$1$2.$3$4"
     );
-    if (models.find((m) => m.id === undatedDotted)) return undatedDotted;
+    if (questModels.find((m) => m.id === undatedDotted)) return undatedDotted;
   }
   return null;
 }
@@ -3301,7 +3337,7 @@ function registerOpenAICompatRoutes(app) {
         }
       });
     }
-    const catalogEntry = models.find((m) => m.id === catalogId);
+    const catalogEntry = questModels.find((m) => m.id === catalogId);
     if (!(catalogId in openAIMap) && !(catalogId in anthropicMap) && !(catalogId in geminiMap) && !(catalogId in pollinationsMap)) {
       return res.status(400).json({
         error: {

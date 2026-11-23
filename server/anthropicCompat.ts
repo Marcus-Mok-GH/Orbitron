@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { randomBytes } from "node:crypto";
-import { models as catalog } from "../src/data/models";
+import { questModels as catalog } from "../src/data/models";
 import { requireApiKeyAnthropic } from "./auth";
 import { providerForModel, recordUsage } from "./usage";
 import {
@@ -12,8 +12,6 @@ import {
   openAIMap,
   anthropicMap,
   geminiMap,
-  pollinationsMap,
-  pollinations,
   pollinationsMap,
   pollinations,
   runOpenAI,

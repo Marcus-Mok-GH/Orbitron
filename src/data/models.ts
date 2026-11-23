@@ -464,3 +464,58 @@ export const models: Model[] = [
     description: "Pollinations.AI support assistant \u2014 it knows the platform's API, models, pricing, auth, and codebase inside out. Sharp, direct, and built for fast answers.",
   },
 ];
+
+/**
+ * IDs verified as usable with Quest Pollen (free balance) against
+ * GET https://gen.pollinations.ai/v1/models — `paid_only === false` —
+ * on 2026-11-23. Keep this list explicit: a model is only exposed in the
+ * picker once it has been checked here, so newly added paid-only models can
+ * never leak into the UI by accident.
+ */
+export const questModelIds = new Set<string>([
+  "openai/gpt-5.4-nano",
+  "openai/gpt-6.1-terra",
+  "minimax/minimax-m3.1-flash",
+  "moonshotai/kimi-k3.1-pro",
+  "deepseek/deepseek-v4.1-flash-1017",
+  "meta/muse-spark-open",
+  "openai/gpt-6.1-sol",
+  "openai/gpt-5.3-codex",
+  "openai/gpt-6-luna",
+  "openai/gpt-6-sol",
+  "deepseek/deepseek-v4.1-flash",
+  "openai/gpt-6-astra",
+  "z-ai/glm-5.3-flash",
+  "nvidia/nemotron-3.5-lightning",
+  "z-ai/glm-5.3",
+  "nvidia/nemotron-3-ultra",
+  "moonshotai/kimi-k3",
+  "openai/gpt-oss-20b",
+  "x-ai/grok-4.6",
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.6-sol",
+  "openai/gpt-5.6-terra",
+  "minimax/minimax-m3",
+  "x-ai/grok-4.3",
+  "openai/gpt-5.4-mini",
+  "openai/gpt-5.5",
+  "meta/llama-3.3-70b-instruct",
+  "moonshotai/kimi-k2.6",
+  "mistralai/mistral-large-3",
+  "qwen/qwen3guard-gen-8b",
+  "x-ai/grok-4.20",
+  "deepseek/deepseek-v4-flash",
+  "openai/gpt-5-nano",
+  "openai/gpt-5.4",
+  "stealth/glyph-cluster",
+  "community/pollinations-ai/floret",
+  "community/pollinations-ai/polli",
+]);
+
+/** Curated catalog restricted to Quest-Pollen-eligible models. Use for every
+ * user-facing model picker, list and detail page. */
+export const questModels = models.filter((m) => questModelIds.has(m.id));
+
+export function isQuestModel(id: string): boolean {
+  return questModelIds.has(id);
+}

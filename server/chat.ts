@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
-import { models as catalog } from "../src/data/models";
+import { questModels as catalog } from "../src/data/models";
 import { requireApiKey } from "./auth";
 import { recordUsage, providerForModel } from "./usage";
 import {

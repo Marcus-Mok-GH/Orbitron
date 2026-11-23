@@ -1,6 +1,6 @@
 import React from "react";
 import { Check } from "lucide-react";
-import { models } from "../data/models";
+import { questModels as models } from "../data/models";
 
 export default function Pricing() {
   return (

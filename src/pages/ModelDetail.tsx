@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Copy, Check, BarChart3 } from "lucide-react";
-import { models } from "../data/models";
+import { questModels as models } from "../data/models";
 import { ProviderIcon } from "../components/ProviderIcon";
 
 interface MeasuredStats {

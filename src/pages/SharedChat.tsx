@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { Markdown } from "../components/Markdown";
-import { models } from "../data/models";
+import { questModels as models } from "../data/models";
 import { ProviderIcon } from "../components/ProviderIcon";
 
 interface SharedMessage {

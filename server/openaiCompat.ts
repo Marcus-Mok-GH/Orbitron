@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { randomBytes } from "node:crypto";
-import { models as catalog } from "../src/data/models";
+import { questModels as catalog } from "../src/data/models";
 import { requireApiKey } from "./auth";
 import { providerForModel, recordUsage } from "./usage";
 import {
