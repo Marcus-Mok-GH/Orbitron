@@ -97,7 +97,9 @@ export async function authFetch(
 ): Promise<Response> {
   const token = await getAccessToken();
   const headers = new Headers(init?.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   return fetch(input, { ...init, headers, credentials: "include" });
 }
 

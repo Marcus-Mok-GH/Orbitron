@@ -8,7 +8,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 
 // src/data/models.ts
-var providers = ["OpenAI", "Anthropic", "Google"];
+var providers = ["OpenAI", "Anthropic", "Google", "Pollinations"];
 var models = [
   // ---------- OpenAI ----------
   {
@@ -324,6 +324,22 @@ var models = [
     latency: 180,
     modalities: ["text", "tools"],
     description: "Fast reasoning model with chain-of-thought processing. Good balance of speed and intelligence."
+  },
+  // ---------- Pollinations ----------
+  // Served via Pollinations' OpenAI-compatible gateway (text.pollinations.ai).
+  // Prices reflect Pollinations Pollen-equivalent rates for gateway billing;
+  // the underlying GPT-OSS 20B weights are open-weights.
+  {
+    id: "openai-fast",
+    name: "GPT-OSS 20B",
+    provider: "Pollinations",
+    contextWindow: 131072,
+    inputPrice: 0.05,
+    outputPrice: 0.15,
+    throughput: 95,
+    latency: 420,
+    modalities: ["text", "tools"],
+    description: "Open-weights 20B reasoning model served by Pollinations. Budget pick with tool calling and solid everyday quality."
   }
 ];
 
@@ -1367,6 +1383,10 @@ var openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "unset",
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL
 });
+var pollinations = new OpenAI({
+  apiKey: process.env.POLLINATIONS_API_KEY ?? "unset",
+  baseURL: "https://text.pollinations.ai/openai"
+});
 var anthropic = new Anthropic({
   apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? "unset",
   baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL ?? process.env.ANTHROPIC_BASE_URL
@@ -1409,6 +1429,9 @@ var geminiMap = {
   "gemini-2.5-flash": "gemini-2.5-flash",
   "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
   "gemini-2.0-flash-thinking": "gemini-2.0-flash-thinking"
+};
+var pollinationsMap = {
+  "openai-fast": "openai-fast"
 };
 var MAX_TOOL_ITERATIONS = 4;
 var MAX_OUTPUT_TOKENS_HARD_CAP = 8192;
@@ -1473,7 +1496,8 @@ ${TOOLS_SYSTEM_HINT}`
     const roundInputTokens = approxTokens(
       messages.map((m) => typeof m.content === "string" ? m.content : JSON.stringify(m.content)).join("\n")
     );
-    const stream = await openai.chat.completions.create({
+    const oai = opts.client ?? openai;
+    const stream = await oai.chat.completions.create({
       model: opts.model,
       messages,
       stream: true,
@@ -1827,7 +1851,7 @@ function registerChatRoutes(app) {
         error: { message: `Unsupported model: ${modelId}`, type: "invalid_request" }
       });
     }
-    if (!(modelId in openAIMap) && !(modelId in anthropicMap) && !(modelId in geminiMap)) {
+    if (!(modelId in openAIMap) && !(modelId in anthropicMap) && !(modelId in geminiMap) && !(modelId in pollinationsMap)) {
       return res.status(400).json({
         error: { message: `Unsupported model: ${modelId}`, type: "invalid_request" }
       });
@@ -1913,6 +1937,16 @@ function registerChatRoutes(app) {
       } else if (modelId in anthropicMap) {
         await runAnthropic({
           model: anthropicMap[modelId],
+          messages,
+          temperature,
+          maxTokens: effectiveMaxTokens,
+          useTools: useWebSearch,
+          ctx
+        });
+      } else if (modelId in pollinationsMap) {
+        await runOpenAI({
+          client: pollinations,
+          model: pollinationsMap[modelId],
           messages,
           temperature,
           maxTokens: effectiveMaxTokens,
@@ -2027,10 +2061,11 @@ async function pingProvider(name, fn, timeoutMs = 8e3) {
 }
 var statusCache = null;
 var STATUS_TTL_MS = 3e4;
-var IMAGE_MODEL_IDS = ["gpt-image-1", "gemini-2.5-flash-image"];
+var IMAGE_MODEL_IDS = ["gpt-image-1", "gemini-2.5-flash-image", "sana"];
 var IMAGE_PRICE_USD = {
   "gpt-image-1": 0.04,
-  "gemini-2.5-flash-image": 0.039
+  "gemini-2.5-flash-image": 0.039,
+  "sana": 0.01
 };
 var IMAGE_PROMPT_MAX_LEN = 4e3;
 var ACCOUNT_DELETE_MAX = 5;
@@ -2078,7 +2113,16 @@ function registerApiRoutes(app) {
           contents: [{ role: "user", parts: [{ text: "ping" }] }],
           config: { maxOutputTokens: 1 }
         })
-      )
+      ),
+      pingProvider("Pollinations", async () => {
+        const r = await fetch("https://text.pollinations.ai/models", {
+          headers: {
+            Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`
+          }
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
     ]);
     const down = providerResults.filter((p) => p.status === "down").length;
     const degraded = providerResults.filter((p) => p.status === "degraded").length;
@@ -2234,7 +2278,27 @@ function registerApiRoutes(app) {
     let success = false;
     try {
       let data;
-      if (modelId === "gemini-2.5-flash-image") {
+      if (modelId === "sana") {
+        const [width, height] = (size === "auto" ? "1024x1024" : size).split("x").map((n2) => Number.parseInt(n2, 10) || 1024);
+        const calls = Array.from(
+          { length: requestedN },
+          () => fetch(
+            `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&model=sana`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`
+              }
+            }
+          ).then(async (r) => {
+            if (!r.ok) {
+              throw new Error(`Pollinations image request failed (${r.status})`);
+            }
+            const buf = Buffer.from(await r.arrayBuffer());
+            return { b64_json: buf.toString("base64"), revised_prompt: null };
+          })
+        );
+        data = await Promise.all(calls);
+      } else if (modelId === "gemini-2.5-flash-image") {
         const calls = Array.from(
           { length: requestedN },
           () => gemini2.models.generateContent({

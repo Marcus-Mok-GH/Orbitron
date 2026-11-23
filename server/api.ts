@@ -96,7 +96,7 @@ interface ImageBody {
   model?: string;
 }
 
-const IMAGE_MODEL_IDS = ["gpt-image-1", "gemini-2.5-flash-image"] as const;
+const IMAGE_MODEL_IDS = ["gpt-image-1", "gemini-2.5-flash-image", "sana"] as const;
 type ImageModelId = (typeof IMAGE_MODEL_IDS)[number];
 
 /**
@@ -112,6 +112,7 @@ type ImageModelId = (typeof IMAGE_MODEL_IDS)[number];
 const IMAGE_PRICE_USD: Record<ImageModelId, number> = {
   "gpt-image-1": 0.04,
   "gemini-2.5-flash-image": 0.039,
+  "sana": 0.01,
 };
 
 const IMAGE_PROMPT_MAX_LEN = 4000;
@@ -169,7 +170,17 @@ export function registerApiRoutes(app: Express): void {
           contents: [{ role: "user", parts: [{ text: "ping" }] }],
           config: { maxOutputTokens: 1 },
         }),
-      ),
+      ),      pingProvider("Pollinations", async () => {
+        // The text gateway only exposes generation endpoints; a models list
+        // GET is the cheapest authenticated probe.
+        const r = await fetch("https://text.pollinations.ai/models", {
+          headers: {
+            Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY ?? "unset"}`,
+          },
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     ]);
 
     const down = providerResults.filter((p) => p.status === "down").length;
@@ -356,7 +367,32 @@ export function registerApiRoutes(app: Express): void {
     let success = false;
     try {
       let data: Array<{ b64_json: string | null; revised_prompt: string | null }>;
-      if (modelId === "gemini-2.5-flash-image") {
+      if (modelId === "sana") {
+        // Pollinations sana — GET image endpoint returns a JPEG binary.
+        // One image per call; fan out for n>1. Size is parsed WxH directly.
+        const [width, height] = (size === "auto" ? "1024x1024" : size)
+          .split("x")
+          .map((n) => Number.parseInt(n, 10) || 1024);
+        const calls = Array.from({ length: requestedN }, () =>
+          fetch(
+            `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&model=sana`,
+            {
+              headers: {
+                Authorization: `Bearer ${
+                  process.env.POLLINATIONS_API_KEY ?? "unset"
+                }`,
+              },
+            },
+          ).then(async (r) => {
+            if (!r.ok) {
+              throw new Error(`Pollinations image request failed (${r.status})`);
+            }
+            const buf = Buffer.from(await r.arrayBuffer());
+            return { b64_json: buf.toString("base64"), revised_prompt: null };
+          }),
+        );
+        data = await Promise.all(calls);
+      } else if (modelId === "gemini-2.5-flash-image") {
         // Gemini generates one image per call; fan out for n>1.
         const calls = Array.from({ length: requestedN }, () =>
           (gemini.models.generateContent as (a: unknown) => Promise<unknown>)({

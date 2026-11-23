@@ -68,7 +68,7 @@ function getDisplayUrl(img: GeneratedImage): string {
 // a library like squoosh or server-side conversion would be needed.
 
 type Size = "1024x1024" | "1024x1536" | "1536x1024" | "auto";
-type ImageModelId = "gpt-image-1" | "gemini-2.5-flash-image";
+type ImageModelId = "gpt-image-1" | "gemini-2.5-flash-image" | "sana";
 
 interface ImageModelInfo {
   id: ImageModelId;
@@ -92,6 +92,13 @@ const IMAGE_MODELS: ImageModelInfo[] = [
     provider: "Google",
     supportsSize: false,
     blurb: "Fast · native multimodal",
+  },
+  {
+    id: "sana",
+    label: "Sana",
+    provider: "Pollinations",
+    supportsSize: true,
+    blurb: "~$0.01/image · budget pick",
   },
 ];
 

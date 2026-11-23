@@ -13,7 +13,7 @@ export interface Model {
   description: string;
 }
 
-export const providers = ["OpenAI", "Anthropic", "Google"];
+export const providers = ["OpenAI", "Anthropic", "Google", "Pollinations"];
 
 export const models: Model[] = [
   // ---------- OpenAI ----------
@@ -332,5 +332,22 @@ export const models: Model[] = [
     latency: 180,
     modalities: ["text", "tools"],
     description: "Fast reasoning model with chain-of-thought processing. Good balance of speed and intelligence.",
+  },
+
+  // ---------- Pollinations ----------
+  // Served via Pollinations' OpenAI-compatible gateway (text.pollinations.ai).
+  // Prices reflect Pollinations Pollen-equivalent rates for gateway billing;
+  // the underlying GPT-OSS 20B weights are open-weights.
+  {
+    id: "openai-fast",
+    name: "GPT-OSS 20B",
+    provider: "Pollinations",
+    contextWindow: 131072,
+    inputPrice: 0.05,
+    outputPrice: 0.15,
+    throughput: 95,
+    latency: 420,
+    modalities: ["text", "tools"],
+    description: "Open-weights 20B reasoning model served by Pollinations. Budget pick with tool calling and solid everyday quality.",
   },
 ];

@@ -31,6 +31,13 @@ const openai = new OpenAI({
     process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL,
 });
 
+// Pollinations serves open-weights models behind an OpenAI-compatible
+// endpoint (text.pollinations.ai/openai) authenticated with a Bearer key.
+const pollinations = new OpenAI({
+  apiKey: process.env.POLLINATIONS_API_KEY ?? "unset",
+  baseURL: "https://text.pollinations.ai/openai",
+});
+
 const anthropic = new Anthropic({
   apiKey:
     process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY ??
@@ -86,6 +93,10 @@ export const geminiMap: Record<string, string> = {
   "gemini-2.5-flash": "gemini-2.5-flash",
   "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
   "gemini-2.0-flash-thinking": "gemini-2.0-flash-thinking",
+};
+
+export const pollinationsMap: Record<string, string> = {
+  "openai-fast": "openai-fast",
 };
 
 export interface ToolCallSpec {
@@ -216,6 +227,7 @@ interface OpenAIToolCall {
 }
 
 export async function runOpenAI(opts: {
+  client?: OpenAI;
   model: string;
   messages: ChatMessage[];
   temperature?: number;
@@ -284,7 +296,8 @@ export async function runOpenAI(opts: {
         .join("\n"),
     );
 
-    const stream = await openai.chat.completions.create({
+    const oai = opts.client ?? openai;
+    const stream = await oai.chat.completions.create({
       model: opts.model,
       messages,
       stream: true,
@@ -811,7 +824,8 @@ export function registerChatRoutes(app: Express): void {
     if (
       !(modelId in openAIMap) &&
       !(modelId in anthropicMap) &&
-      !(modelId in geminiMap)
+      !(modelId in geminiMap) &&
+      !(modelId in pollinationsMap)
     ) {
       return res.status(400).json({
         error: { message: `Unsupported model: ${modelId}`, type: "invalid_request" },
@@ -933,6 +947,16 @@ export function registerChatRoutes(app: Express): void {
       } else if (modelId in anthropicMap) {
         await runAnthropic({
           model: anthropicMap[modelId],
+          messages,
+          temperature,
+          maxTokens: effectiveMaxTokens,
+          useTools: useWebSearch,
+          ctx,
+        });
+      } else if (modelId in pollinationsMap) {
+        await runOpenAI({
+          client: pollinations,
+          model: pollinationsMap[modelId],
           messages,
           temperature,
           maxTokens: effectiveMaxTokens,
