@@ -35,7 +35,8 @@ function SpecRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function ModelDetail() {
-  const { slug } = useParams();
+  const params = useParams();
+  const slug = params["*"] ?? params.slug;
   const model = getModel(slug);
 
   if (!model) {

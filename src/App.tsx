@@ -115,7 +115,7 @@ export default function App() {
           <Route path="/explore" element={<CatalogModels />} />
           <Route path="/explore/compare" element={<CatalogCompare />} />
           <Route path="/explore/calculator" element={<CatalogCalculator />} />
-          <Route path="/explore/:slug" element={<CatalogModelDetail />} />
+          <Route path="/explore/*" element={<CatalogModelDetail />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         <Route element={<AppLayout />}>
