@@ -29,3 +29,12 @@ LLM gateway app (OpenRouter-style UI). React/Vite SPA + Express server (`server/
 - Deployed at https://orbitron-marker.zocomputer.io (public Zo user service, http mode, local_port 5000).
 - To redeploy after code changes: rebuild (`npm run build` with `VITE_NEON_AUTH_URL` exported) then
   `update_user_service(service_id="svc_ANg3PuoY44c")` to restart.
+
+## Security settings
+
+- `src/components/SecuritySettings.tsx` owns password changes, email verification, sessions and account deletion; `src/pages/ResetPassword.tsx` provides the public email-code reset flow.
+- Use Neon browser SDK session controls; session cookies live on Neon's domain. Session IDs come from `getSession()`, never a user-agent guess. `/api/auth/sessions` returns metadata and full IDs, never session tokens.
+- `src/lib/emailSecurity.ts` calls the supported Email OTP endpoints through the SDK's typed `$fetch` (the bundled client types omit plugin helpers).
+- Account deletion removes the Neon identity and app data in one database transaction. API keys cannot delete accounts; deleted identities must not be recreated by an unexpired JWT.
+- MFA is unsupported by the configured managed provider. Auth-event webhooks are disabled, so do not present active sessions as complete login history.
+- `npm run check:security` runs isolated integration checks without live credentials or database changes.

@@ -16,6 +16,7 @@ import Docs from "./pages/Docs";
 import Status from "./pages/Status";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ResetPassword from "./pages/ResetPassword";
 import SharedChat from "./pages/SharedChat";
 import NotFound from "./pages/NotFound";
 import CatalogModels from "./pages/catalog/Models";
@@ -130,6 +131,7 @@ export default function App() {
         </Route>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/share/:slug" element={<SharedChat />} />
       </Routes>
     </>

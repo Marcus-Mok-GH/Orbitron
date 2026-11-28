@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import type { PoolClient } from "pg";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
@@ -16,7 +17,7 @@ import {
   refundCredits,
   recordCreditAudit,
 } from "./credits";
-import { query } from "./db";
+import { query, pool } from "./db";
 import { randomBytes } from "node:crypto";
 
 const openai = new OpenAI({
@@ -480,12 +481,11 @@ export function registerApiRoutes(app: Express): void {
   });
 
   // POST /api/account/delete — permanently delete the authenticated user.
-  // Removes the users row, which CASCADEs to api_keys, usage_events,
-  // credit_grants, and shared_chats. Then destroys the session so the browser
-  // is signed out. Frontend should redirect to "/" after a successful 204.
+  // Deletes the Neon identity and app data atomically. The browser signs out
+  // through Neon after a successful 204.
   //
   // Hardening layers (defense in depth):
-  //   1. requireAuth — must hold a valid session cookie.
+  //   1. requireAuth — must hold a verified Neon JWT (API keys are rejected).
   //   2. Origin / Referer check — request must originate from our own host,
   //      blocking cross-site CSRF even if the attacker has the cookie.
   //   3. Body-confirmation phrase — the server independently checks that the
@@ -496,9 +496,11 @@ export function registerApiRoutes(app: Express): void {
   //   5. Audit log — every attempt (success or rejection) is logged with user
   //      id, IP, and user-agent for incident review.
   app.post("/api/account/delete", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req.user as { claims: { sub: string } }).claims.sub;
+    if (req.auth!.via !== "session") {
+      return res.status(403).json({ error: { message: "Sign in to delete your account. API keys cannot delete accounts." } });
+    }
+    const userId = req.auth!.user.id;
     const ip = req.ip ?? "?";
-    const ua = req.get("user-agent") ?? "?";
 
     // 2. Origin / Referer check. Either header must match our host.
     const expectedHost = req.get("host");
@@ -547,26 +549,25 @@ export function registerApiRoutes(app: Express): void {
         .json({ error: { message: "Too many delete attempts. Try again later." } });
     }
 
-    // 5. Audit log + perform the delete.
-    console.log(
-      `[account-delete] proceeding user=${userId} ip=${ip} ua=${JSON.stringify(ua)}`,
-    );
+    let client: PoolClient | undefined;
     try {
-      await query(`DELETE FROM users WHERE id = $1`, [userId]);
+      client = await pool.connect();
+      await client.query("BEGIN");
+      await client.query('SELECT id FROM neon_auth."user" WHERE id = $1::uuid FOR UPDATE', [userId]);
+      await client.query('DELETE FROM neon_auth.session WHERE "userId" = $1::uuid', [userId]);
+      await client.query('DELETE FROM neon_auth.account WHERE "userId" = $1::uuid', [userId]);
+      await client.query('DELETE FROM neon_auth."user" WHERE id = $1::uuid', [userId]);
+      await client.query("DELETE FROM public.users WHERE id = $1", [userId]);
+      await client.query("COMMIT");
+      console.log(`[account-delete] deleted user=${userId}`);
+      res.status(204).end();
     } catch (err) {
+      if (client) await client.query("ROLLBACK").catch(() => undefined);
       console.error("Account deletion failed:", err);
-      return res
-        .status(500)
-        .json({ error: { message: "Failed to delete account" } });
+      res.status(500).json({ error: { message: "Failed to delete account" } });
+    } finally {
+      client?.release();
     }
-    // Best-effort session teardown. We don't fail the request if logout/destroy
-    // errors — the user row is already gone, so any leftover session is inert.
-    req.logout(() => {
-      req.session?.destroy(() => {
-        res.clearCookie("connect.sid");
-        res.status(204).end();
-      });
-    });
   });
 
   // GET /api/share/:slug — public, no auth. Returns the snapshot and metadata

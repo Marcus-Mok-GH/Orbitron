@@ -27,6 +27,7 @@ export interface AuthUser {
   firstName: string | null;
   lastName: string | null;
   profileImageUrl: string | null;
+  emailVerified?: boolean;
 }
 
 interface AuthState {
@@ -46,6 +47,7 @@ interface NeonSessionUser {
   email?: string;
   name?: string;
   image?: string | null;
+  emailVerified?: boolean;
 }
 
 function mapNeonUser(u: NeonSessionUser | undefined | null): AuthUser | null {
@@ -57,6 +59,7 @@ function mapNeonUser(u: NeonSessionUser | undefined | null): AuthUser | null {
     firstName: nameParts[0] ?? null,
     lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : null,
     profileImageUrl: u.image ?? null,
+    emailVerified: u.emailVerified === true,
   };
 }
 

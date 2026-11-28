@@ -8,16 +8,15 @@ import {
   ExternalLink,
   Loader2,
   AlertTriangle,
-  LogOut,
   Sun,
   Moon,
   Monitor as MonitorIcon,
   Bell,
   BellOff,
   DollarSign,
-  Trash2,
 } from "lucide-react";
 import { useAuth, displayNameFor, initialsFor, authFetch } from "../lib/auth";
+import { SecuritySettings } from "../components/SecuritySettings";
 import { CustomProviders } from "../components/CustomProviders";
 
 interface UserPreferences {
@@ -69,109 +68,14 @@ const USAGE_THRESHOLD_OPTIONS = [
   { value: 25000, label: "$250" },
 ];
 
-interface SessionInfo {
-  id: string;
-  current: boolean;
-  device: string;
-  browser: string | null;
-  os: string | null;
-  ip: string | null;
-  lastSeenAt: string | null;
-  createdAt: string | null;
-  expiresAt: string;
-}
-
-function formatRelative(value: string | null): string {
-  if (!value) return "—";
-  const then = new Date(value).getTime();
-  if (Number.isNaN(then)) return "—";
-  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (diffSec < 30) return "just now";
-  if (diffSec < 60) return `${diffSec}s ago`;
-  const m = Math.floor(diffSec / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(value).toLocaleDateString();
-}
-
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const { user } = useAuth();
-
-  // Recent sign-ins state
-  const [sessions, setSessions] = useState<SessionInfo[] | null>(null);
-  const [sessionsError, setSessionsError] = useState<string | null>(null);
-  const [revoking, setRevoking] = useState(false);
-  const [revokeNotice, setRevokeNotice] = useState<string | null>(null);
-
-  // Account deletion state. The user must type "delete my account" to enable
-  // the destructive button — protects against accidental clicks.
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const DELETE_PHRASE = "delete my account";
-
-  async function deleteAccount() {
-    if (deleteConfirmText.trim().toLowerCase() !== DELETE_PHRASE) return;
-    // Final accidental-click guard — a native dialog the user has to acknowledge.
-    if (
-      !window.confirm(
-        "This will permanently delete your account, API keys, usage history, " +
-          "credits, and shared chats. There is no undo. Continue?",
-      )
-    ) {
-      return;
-    }
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      const res = await authFetch("/api/account/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ confirm: deleteConfirmText.trim() }),
-      });
-      if (!res.ok && res.status !== 204) {
-        let msg = `HTTP ${res.status}`;
-        try {
-          const data = (await res.json()) as { error?: { message?: string } };
-          if (data.error?.message) msg = data.error.message;
-        } catch {
-          /* response wasn't JSON — keep the status code */
-        }
-        throw new Error(msg);
-      }
-      // Server has already destroyed the session and cleared the cookie.
-      // Hard-navigate to the marketing landing so all in-memory state is reset.
-      window.location.href = "/";
-    } catch (err) {
-      console.error("Account deletion failed:", err);
-      setDeleteError(
-        err instanceof Error ? err.message : "Failed to delete account",
-      );
-      setDeleting(false);
-    }
-  }
 
   // Preferences state
   const [preferences, setPreferences] = useState<UserPreferences>(loadLocalPreferences);
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const [savingPrefs, setSavingPrefs] = useState(false);
-
-  const refreshSessions = useCallback(async () => {
-    try {
-      const res = await authFetch("/api/auth/sessions");
-      if (!res.ok) throw new Error(`Failed (${res.status})`);
-      const body = (await res.json()) as { data: SessionInfo[] };
-      setSessions(body.data);
-      setSessionsError(null);
-    } catch (err) {
-      setSessionsError(err instanceof Error ? err.message : "Failed to load sessions");
-    }
-  }, []);
 
   // Fetch preferences from server when authenticated
   const refreshPreferences = useCallback(async () => {
@@ -186,44 +90,12 @@ export default function Settings() {
     }
   }, []);
 
-  useEffect(() => {
-    if (activeTab === "profile") {
-      void refreshSessions();
-    }
-  }, [activeTab, refreshSessions]);
-
   // Fetch preferences on mount and when authenticated
   useEffect(() => {
     if (user) {
       void refreshPreferences();
     }
   }, [user, refreshPreferences]);
-
-  const handleRevokeOthers = async () => {
-    if (!confirm("Sign out of every other browser and device? You'll stay signed in here.")) return;
-    setRevoking(true);
-    setRevokeNotice(null);
-    try {
-      const res = await authFetch("/api/auth/sessions/revoke-others", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(`Failed (${res.status})`);
-      const body = (await res.json()) as { revoked: number };
-      setRevokeNotice(
-        body.revoked === 0
-          ? "No other sessions were active."
-          : `Signed out of ${body.revoked} other session${body.revoked === 1 ? "" : "s"}.`,
-      );
-      await refreshSessions();
-    } catch (err) {
-      setRevokeNotice(err instanceof Error ? err.message : "Failed to sign out other sessions");
-    } finally {
-      setRevoking(false);
-    }
-  };
-
-  const otherSessionCount = (sessions ?? []).filter((s) => !s.current).length;
 
   // Update a single preference and sync to server
   const updatePreference = async <K extends keyof UserPreferences>(
@@ -375,139 +247,6 @@ export default function Settings() {
                   <p className="text-xs font-mono text-muted-foreground">
                     Managed by Neon Auth (Managed Better Auth)
                   </p>
-                </div>
-              </div>
-
-              {/* Recent sign-ins */}
-              <div className="pt-8 mt-8 border-t border-border">
-                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold">Recent sign-ins</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground font-mono mt-1">
-                      Active Orbitron sessions for your account.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleRevokeOthers}
-                    disabled={revoking || otherSessionCount === 0}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 border border-border rounded-md text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      otherSessionCount === 0
-                        ? "No other active sessions"
-                        : "Sign out of every other session"
-                    }
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    {revoking ? "Signing out…" : "Sign out everywhere else"}
-                  </button>
-                </div>
-
-                {revokeNotice && (
-                  <div className="mb-4 text-xs font-mono text-muted-foreground border border-border rounded-md bg-muted/20 px-3 py-2">
-                    {revokeNotice}
-                  </div>
-                )}
-
-                {sessionsError ? (
-                  <div className="border border-yellow-500/40 bg-yellow-500/10 text-yellow-200 rounded-md px-4 py-3 text-sm font-mono flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    {sessionsError}
-                  </div>
-                ) : sessions === null ? (
-                  <div className="flex items-center justify-center py-10 text-muted-foreground text-sm font-mono">
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading…
-                  </div>
-                ) : sessions.length === 0 ? (
-                  <div className="border border-dashed border-border rounded-lg p-8 text-center text-sm text-muted-foreground font-mono">
-                    No active sessions found.
-                  </div>
-                ) : (
-                  <div className="border border-border rounded-lg overflow-hidden bg-card divide-y divide-border">
-                    {sessions.map((s) => (
-                      <div
-                        key={s.id}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4"
-                      >
-              <div className="flex items-start gap-2 sm:gap-3 min-w-0">
-                <Monitor className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                    {s.device}
-                    {s.current && (
-                      <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 text-[10px] font-mono uppercase">
-                        this device
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-mono mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                    <span>{s.ip ?? "ip unknown"}</span>
-                    <span className="hidden sm:inline">id {s.id}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground font-mono sm:text-right shrink-0 pl-7 sm:pl-0">
-                          <div>Active {formatRelative(s.lastSeenAt)}</div>
-                          <div className="text-[11px] mt-0.5">
-                            Expires {new Date(s.expiresAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Danger zone — permanent account deletion */}
-              <div className="border border-destructive/40 rounded-lg p-4 sm:p-5 bg-destructive/5">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-sm">Delete account</h3>
-                    <p className="text-xs text-muted-foreground font-mono mt-1">
-                      Permanently removes your profile, API keys, usage history,
-                      credit balance, and shared chat links. This cannot be undone.
-                    </p>
-                    <div className="mt-4 space-y-3">
-                      <div>
-                        <label
-                          htmlFor="delete-confirm"
-                          className="text-xs font-mono text-muted-foreground"
-                        >
-                          Type <span className="font-bold text-foreground">{DELETE_PHRASE}</span> to confirm
-                        </label>
-                        <input
-                          id="delete-confirm"
-                          type="text"
-                          autoComplete="off"
-                          value={deleteConfirmText}
-                          onChange={(e) => setDeleteConfirmText(e.target.value)}
-                          disabled={deleting}
-                          className="mt-1 w-full sm:w-80 bg-background border border-border rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-destructive"
-                          placeholder={DELETE_PHRASE}
-                        />
-                      </div>
-                      {deleteError && (
-                        <div className="text-xs font-mono text-destructive">
-                          {deleteError}
-                        </div>
-                      )}
-                      <button
-                        onClick={() => void deleteAccount()}
-                        disabled={
-                          deleting ||
-                          deleteConfirmText.trim().toLowerCase() !== DELETE_PHRASE
-                        }
-                        className="inline-flex items-center justify-center gap-2 bg-destructive text-destructive-foreground text-sm font-medium px-4 py-2 rounded-md hover:bg-destructive/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto"
-                      >
-                        {deleting ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                        {deleting ? "Deleting…" : "Delete my account"}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -743,9 +482,7 @@ export default function Settings() {
           )}
 
           {(activeTab === "security") && (
-            <div className="flex h-32 items-center justify-center border border-dashed border-border rounded-lg text-muted-foreground font-mono text-sm">
-              Security settings coming soon
-            </div>
+            <SecuritySettings />
           )}
         </div>
       </div>

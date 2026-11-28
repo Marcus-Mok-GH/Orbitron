@@ -127,6 +127,8 @@ async function getSessionUser(req: Request): Promise<AuthUser | null> {
   if (!token) return null;
   const claims = await verifyNeonToken(token);
   if (!claims) return null;
+  const identity = await query('SELECT id FROM neon_auth."user" WHERE id = $1::uuid', [claims.sub]);
+  if (!identity.rows.length) return null;
 
   const nameParts = claims.name ? claims.name.split(/\s+/) : [];
   const user = await authStorage.upsertUser({

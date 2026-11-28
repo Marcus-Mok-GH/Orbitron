@@ -89,12 +89,8 @@ export function registerAuthRoutes(app: Express): void {
         [userId],
       );
 
-      const reqUA = req.get("user-agent") || null;
       const data = result.rows.map((r) => ({
-        id: `${r.id.slice(0, 8)}…`,
-        // Best-effort "current device" guess: newest session using the same
-        // user agent as this request (JWTs carry no session id).
-        current: r.userAgent !== null && r.userAgent === reqUA,
+        id: r.id,
         device: r.userAgent ? describeUA(r.userAgent).device : "Unknown device",
         browser: r.userAgent ? describeUA(r.userAgent).browser : null,
         os: r.userAgent ? describeUA(r.userAgent).os : null,
@@ -104,21 +100,11 @@ export function registerAuthRoutes(app: Express): void {
         expiresAt: new Date(r.expiresAt).toISOString(),
       }));
 
-      res.json({ data });
+      res.set("Cache-Control", "no-store").json({ data });
     } catch (err) {
       console.error("list sessions failed:", err);
       res.status(500).json({ message: "Failed to load sessions" });
     }
-  });
-
-  // POST /api/auth/sessions/revoke-others — session cookies live on Neon's
-  // managed auth service (a different domain), so our server cannot revoke
-  // them. The Settings UI surfaces this as an explicit notice.
-  app.post("/api/auth/sessions/revoke-others", requireAuth, async (_req: Request, res: Response) => {
-    res.status(501).json({
-      message:
-        "Revoking other sessions is managed by Neon Auth and is not available through the API yet.",
-    });
   });
 }
 
