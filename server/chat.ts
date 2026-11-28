@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import { questModels as catalog } from "../src/data/models";
+import { pollinationsMap } from "./providerModels";
 import { requireApiKey } from "./auth";
 import { recordUsage, providerForModel } from "./usage";
 import {
@@ -95,9 +96,7 @@ export const geminiMap: Record<string, string> = {
   "gemini-2.0-flash-thinking": "gemini-2.0-flash-thinking",
 };
 
-export const pollinationsMap: Record<string, string> = Object.fromEntries(
-  catalog.map((m) => [m.id, m.id]),
-);
+export { pollinationsMap } from "./providerModels";
 
 export interface ToolCallSpec {
   id: string;

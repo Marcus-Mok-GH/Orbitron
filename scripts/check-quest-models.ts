@@ -1,4 +1,5 @@
 import { models, questModelIds, questModels } from "../src/data/models";
+import { pollinationsMap } from "../server/providerModels";
 
 const endpoint = "https://gen.pollinations.ai/v1/models";
 
@@ -19,9 +20,10 @@ for (const model of models) {
     problems.push(`${model.id}: in catalog but not verified for Quest Pollen`);
     continue;
   }
-  const entry = live.get(model.id);
+  const providerId = pollinationsMap[model.id];
+  const entry = live.get(providerId);
   if (!entry) {
-    problems.push(`${model.id}: no longer in the Pollinations catalog`);
+    problems.push(`${model.id} (${providerId}): no longer in the Pollinations catalog`);
   } else if (entry.paid_only !== false) {
     problems.push(`${model.id}: now paid-only — remove from questModelIds`);
   }
