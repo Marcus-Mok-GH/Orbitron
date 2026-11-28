@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useAuth, displayNameFor, initialsFor, authFetch } from "../lib/auth";
+import { CustomProviders } from "../components/CustomProviders";
 
 interface UserPreferences {
   theme: "light" | "dark" | "system";
@@ -514,9 +515,10 @@ export default function Settings() {
 
           {activeTab === "byok" && (
             <div className="space-y-6">
+              <CustomProviders />
               <p className="text-sm text-muted-foreground mb-6">
                 Provide your own provider API keys. We'll route requests to these providers using your keys instead of billing you per token. 
-                Orbitron charges a flat $20/mo routing fee per active BYOK provider.
+                Custom providers above are billed directly by the provider and do not use Orbitron credits.
               </p>
               
               <div className="space-y-4">

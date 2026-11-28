@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { authFetch } from "../lib/auth";
+import { authFetch, useAuth } from "../lib/auth";
+import { listCustomProviders, customModelId, parseCustomModelId, type CustomProvider } from "../lib/customProviders";
 import { getDashboardKey, resetDashboardKey } from "../lib/dashboardKey";
 import {
   Settings2,
@@ -20,7 +21,7 @@ import {
   Wallet,
   PlusCircle,
 } from "lucide-react";
-import { questModels as models } from "../data/models";
+import { questModels as catalogModels } from "../data/models";
 import { Markdown } from "../components/Markdown";
 import { ProviderIcon } from "../components/ProviderIcon";
 
@@ -126,7 +127,7 @@ function loadSettings(): ChatSettings {
       const saved = { ...defaults, ...JSON.parse(raw) } as ChatSettings;
       // Drop model ids that no longer exist in the catalog (e.g. after the
       // Pollinations migration) so stale local settings can't break chat.
-      if (!models.some((m) => m.id === saved.modelId)) {
+      if (!catalogModels.some((m) => m.id === saved.modelId) && !parseCustomModelId(saved.modelId)) {
         saved.modelId = DEFAULT_MODEL;
       }
       return saved;
@@ -315,6 +316,31 @@ function formatCost(cost: number): string {
 }
 
 export default function Chat() {
+  const { user } = useAuth();
+  const [customProviders, setCustomProviders] = useState<CustomProvider[]>([]);
+  const [customProvidersError, setCustomProvidersError] = useState<string | null>(null);
+  const models = useMemo(() => [
+    ...catalogModels,
+    ...customProviders.flatMap((provider) => provider.models.map((model) => ({
+      id: customModelId(provider.id, model), name: model, provider: provider.name,
+      contextWindow: 0, inputPrice: 0, outputPrice: 0, throughput: 0, latency: 0,
+      modalities: ["text"] as ("text")[], description: "Uses your own provider API key.",
+    }))),
+  ], [customProviders]);
+
+  useEffect(() => {
+    let live = true;
+    setCustomProviders([]);
+    const refresh = () => {
+      listCustomProviders()
+        .then((body) => { if (live) { setCustomProviders(body.data); setCustomProvidersError(null); } })
+        .catch(() => { if (live) setCustomProvidersError("Could not load custom providers. Return to Settings or reload to try again."); });
+    };
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => { live = false; window.removeEventListener("focus", refresh); };
+  }, [user?.id]);
+
   const [conversations, setConversations] = useState<Conversation[]>(() => loadConversations());
   const [settings, setSettings] = useState(() => loadSettings());
   const [activeId, setActiveId] = useState<string | null>(() => {
@@ -373,10 +399,14 @@ export default function Chat() {
   }, [settings]);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
-  const activeModel = useMemo(
-    () => models.find((m) => m.id === (active?.modelId ?? settings.modelId)) ?? models[0],
-    [active, settings.modelId]
-  );
+  const activeModel = useMemo(() => {
+    const id = active?.modelId ?? settings.modelId;
+    return models.find((m) => m.id === id) ?? (parseCustomModelId(id)
+      ? { ...models[0], id, name: parseCustomModelId(id)!.model, provider: "Unavailable custom provider" }
+      : models[0]);
+  }, [active, settings.modelId, models]);
+  const isCustomModel = !!parseCustomModelId(activeModel.id);
+  const creditsBlocked = creditBalanceCents === 0 && !isCustomModel;
 
   const sessionCost = useMemo(
     () => (active?.messages ?? []).reduce((sum, m) => sum + (m.cost ?? 0), 0),
@@ -519,7 +549,8 @@ export default function Chat() {
       // re-provision once before bubbling the error up.
       const callChat = async (): Promise<Response> => {
         const apiKey = await getDashboardKey();
-        return authFetch("/api/chat", {
+        const custom = parseCustomModelId(modelId);
+        return authFetch(custom ? `/api/custom-providers/${custom.providerId}/chat` : "/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -527,7 +558,7 @@ export default function Chat() {
           },
           signal: controller.signal,
           body: JSON.stringify({
-            modelId,
+            modelId: custom?.model ?? modelId,
             temperature: settings.temperature,
             maxTokens: settings.maxTokens,
             tools: { webSearch: settings.webSearch },
@@ -774,7 +805,7 @@ export default function Chat() {
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
-      if (creditBalanceCents === 0) return; // Block sending with no credits
+      if (creditsBlocked) return;
       e.preventDefault();
       void send();
     }
@@ -928,16 +959,20 @@ export default function Chat() {
           <div className="p-3 rounded-md bg-muted/30 border border-border">
             <div className="font-medium text-sm">{activeModel.name}</div>
             <div className="text-xs text-muted-foreground font-mono mt-0.5">{activeModel.provider}</div>
-            <div className="grid grid-cols-2 gap-2 mt-3 text-xs font-mono">
-              <div>
-                <div className="text-muted-foreground">Input</div>
-                <div>${activeModel.inputPrice.toFixed(2)}/M</div>
+            {isCustomModel ? (
+              <p className="mt-3 text-xs text-muted-foreground">Billed directly by your provider. Orbitron web search is unavailable for custom models.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mt-3 text-xs font-mono">
+                <div>
+                  <div className="text-muted-foreground">Input</div>
+                  <div>${activeModel.inputPrice.toFixed(2)}/M</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Output</div>
+                  <div>${activeModel.outputPrice.toFixed(2)}/M</div>
+                </div>
               </div>
-              <div>
-                <div className="text-muted-foreground">Output</div>
-                <div>${activeModel.outputPrice.toFixed(2)}/M</div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
         {/* Reasoning level control (only shown for GPT-5/o series) */}
@@ -998,7 +1033,7 @@ export default function Chat() {
       {/* Main column */}
       <div className="flex-1 flex flex-col bg-muted/10 relative min-w-0">
         {/* Credit warning banner */}
-        {showCreditWarning && (
+        {showCreditWarning && !isCustomModel && (
           <div className="shrink-0 bg-yellow-500/10 border-b border-yellow-500/30 px-3 sm:px-4 py-2 sm:py-3">
             <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
@@ -1049,6 +1084,7 @@ export default function Chat() {
               onChange={(e) => selectModel(e.target.value)}
               className="appearance-none w-full bg-transparent font-mono text-xs sm:text-sm border border-border rounded-md pl-3 pr-8 py-1.5 cursor-pointer hover:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary truncate font-bold"
             >
+              {!models.some((m) => m.id === activeModel.id) && <option value={activeModel.id}>{activeModel.name} (provider unavailable)</option>}
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.provider} • {m.name}
@@ -1069,6 +1105,8 @@ export default function Chat() {
             </button>
           </div>
         </header>
+
+        {customProvidersError && <p role="alert" className="px-4 py-2 text-xs text-destructive">{customProvidersError}</p>}
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-8 pb-48 sm:pb-40">
           {(!active || active.messages.length === 0) && (
@@ -1178,9 +1216,10 @@ export default function Chat() {
                   onClick={() =>
                     setSettings((s) => ({ ...s, webSearch: !s.webSearch }))
                   }
-                  aria-pressed={settings.webSearch}
+                  disabled={isCustomModel}
+                  aria-pressed={!isCustomModel && settings.webSearch}
                   title={
-                    settings.webSearch
+                    isCustomModel ? "Web search is unavailable for custom providers" : settings.webSearch
                       ? "Web search on"
                       : "Enable web search"
                   }
@@ -1205,8 +1244,8 @@ export default function Chat() {
                 ) : (
                   <button
                     onClick={() => void send()}
-                    disabled={!input.trim() || creditBalanceCents === 0}
-                    title={creditBalanceCents === 0 ? "No credits remaining" : undefined}
+                    disabled={!input.trim() || creditsBlocked}
+                    title={creditsBlocked ? "No credits remaining" : undefined}
                     className="bg-foreground text-background p-2 rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-target"
                     aria-label="Send message"
                   >

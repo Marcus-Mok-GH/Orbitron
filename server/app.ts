@@ -6,6 +6,7 @@ import { registerAnthropicCompatRoutes } from "./anthropicCompat";
 import { registerOpenAICompatRoutes } from "./openaiCompat";
 import { registerAuthRoutes } from "./authRoutes";
 import { ensureSchema } from "./db";
+import { registerCustomProviderRoutes } from "./customProviders";
 
 export interface AppOptions {
   serveStatic?: boolean;
@@ -28,6 +29,7 @@ export async function createOrbitronApp(options: AppOptions = {}) {
   registerAuthRoutes(app);
 
   registerKeyRoutes(app);
+  registerCustomProviderRoutes(app);
   registerChatRoutes(app);
   registerAnthropicCompatRoutes(app);
   registerOpenAICompatRoutes(app);

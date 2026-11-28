@@ -117,6 +117,38 @@ Then open the local URL shown in your terminal.
 
 ---
 
+## Custom providers
+
+In **Settings → Bring Your Own Key**, add a provider name, a public HTTPS API
+base URL (including `/v1` if the provider requires it), and its API key.
+Enter exact model IDs, one per line, or choose **Fetch all models** to retrieve
+the provider's OpenAI-compatible `GET /models` list and select models to save.
+Providers without that endpoint support manual entry.
+
+Saved models appear in the chat model picker, grouped by the provider name.
+Chat requests use the saved provider's `POST /chat/completions` endpoint and
+API key. These requests are billed by the provider and do not consume
+Orbitron credits. Orbitron web search is unavailable for custom models.
+The existing catalog and its credit accounting are unchanged.
+
+Provider settings are scoped to the signed-in account. Keys are encrypted
+with AES-256-GCM and never returned to the browser. Editing can retain a saved
+key; changing the base URL requires re-entering it. Removing a provider removes
+its saved credentials and models; deleting an account cascades to its providers.
+
+Operators can set `BYOK_ENCRYPTION_KEY` to a persistent secret shared by all
+instances. If omitted, encryption derives from `DATABASE_URL`. Keep the selected
+secret stable: changing it prevents decryption of previously saved keys, and
+users must re-enter those keys. Set a dedicated key before saving providers if
+database credentials are expected to rotate. The schema is created at startup.
+Only public HTTPS endpoints are allowed; outbound requests pin a validated DNS
+address and reject redirects and private/local addresses.
+
+Run `npm run check:custom-providers` for the isolated provider integration checks
+(no live database or paid provider calls required).
+
+---
+
 ## Final note
 
 Orbitron is built to reduce the friction of using modern AI tools. If your goal is to move faster with less setup and fewer moving parts, this project is designed for you.
