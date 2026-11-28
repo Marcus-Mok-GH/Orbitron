@@ -31,9 +31,10 @@ const originalLookup = dns.promises.lookup;
 const originalRequest = https.request;
 let upstreamStatus = 200;
 let upstreamPayload: unknown = { data: [{ id: "shared/model" }, { id: "second-model" }] };
+let upstreamPages: unknown[] = [];
 let upstreamCalls = 0;
 let pinnedLookups = 0;
-let lastUpstream: { url: string; key: string; body: any } | undefined;
+let lastUpstream: { url: string; key: string; headers: Record<string, string>; body: any } | undefined;
 (dns.promises as any).lookup = async (host: string) => [{
   address: host === "private.provider.test" ? "127.0.0.1" : "93.184.216.34", family: 4,
 }];
@@ -48,12 +49,18 @@ let lastUpstream: { url: string; key: string; body: any } | undefined;
   request.setTimeout = () => request;
   request.destroy = (err: Error) => request.emit("error", err);
   request.end = (raw: Buffer | undefined) => {
-    lastUpstream = { url: url.toString(), key: options.headers.authorization, body: raw ? JSON.parse(raw.toString()) : null };
+    lastUpstream = { url: url.toString(), key: options.headers.authorization, headers: options.headers, body: raw ? JSON.parse(raw.toString()) : null };
     const response = new PassThrough() as any;
     response.statusCode = upstreamStatus;
     response.headers = { "content-type": url.pathname.endsWith("/models") ? "application/json" : "text/event-stream" };
     callback(response);
-    if (upstreamStatus !== 200 || url.pathname.endsWith("/models")) response.end(JSON.stringify(upstreamPayload));
+    if (upstreamStatus !== 200 || url.pathname.endsWith("/models")) response.end(JSON.stringify(upstreamPages.length ? upstreamPages.shift() : upstreamPayload));
+    else if (url.pathname.endsWith("/messages")) response.end([
+      ["message_start", { type: "message_start", message: { usage: { input_tokens: 17, output_tokens: 0 } } }],
+      ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hello from Anthropic" } }],
+      ["message_delta", { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 9 } }],
+      ["message_stop", { type: "message_stop" }],
+    ].map(([event, data]) => "event: " + event + "\ndata: " + JSON.stringify(data) + "\n\n").join(""));
     else response.end('data: {"id":"test","choices":[{"index":0,"delta":{"content":"Hello from custom"},"finish_reason":null}]}\n\ndata: [DONE]\n\n');
   };
   return request;
@@ -73,16 +80,16 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
   if (sql.startsWith("UPDATE api_keys")) return { rows: [] };
   if (sql.startsWith("SELECT count(*)")) return { rows: [{ count: String(rows.filter((row) => row.user_id === params[0]).length) }] };
   if (sql.startsWith("INSERT INTO custom_providers")) {
-    const row = { id: randomUUID(), user_id: params[0], name: params[1], base_url: params[2], encrypted_key: params[3], models: JSON.parse(params[4]) };
+    const row = { id: randomUUID(), user_id: params[0], name: params[1], base_url: params[2], encrypted_key: params[3], models: JSON.parse(params[4]), api_format: params[5] };
     rows.push(row);
     return { rows: [row] };
   }
   if (sql.startsWith("SELECT * FROM custom_providers")) return { rows: rows.filter((row) => row.id === params[0] && row.user_id === params[1]) };
   if (sql.startsWith("SELECT id, name")) return { rows: rows.filter((row) => row.user_id === params[0]) };
   if (sql.startsWith("UPDATE custom_providers")) {
-    const row = rows.find((row) => row.id === params[4] && row.user_id === params[5]);
+    const row = rows.find((row) => row.id === params[5] && row.user_id === params[6]);
     if (!row) return { rows: [] };
-    Object.assign(row, { name: params[0], base_url: params[1], encrypted_key: params[2], models: JSON.parse(params[3]) });
+    Object.assign(row, { name: params[0], base_url: params[1], encrypted_key: params[2], models: JSON.parse(params[3]), api_format: params[4] });
     return { rows: [row] };
   }
   if (sql.startsWith("DELETE FROM custom_providers")) {
@@ -119,6 +126,7 @@ try {
   let response = await call("", "POST", details);
   assert.equal(response.status, 201);
   const saved = (await response.json()).data;
+  assert.equal(saved.apiFormat, "openai");
   assert.equal(saved.apiKey, undefined);
   assert.equal(saved.encrypted_key, undefined);
   assert.equal(saved.baseUrl, "https://api.provider.test/v1");
@@ -166,8 +174,70 @@ try {
   assert.equal((await call("/" + saved.id, "DELETE")).status, 204);
   assert.equal((await (await call("")).json()).data.length, 0);
   assert.equal((await call("/" + saved.id + "/chat", "POST", { modelId: "shared/model", messages: [{ role: "user", content: "Hi" }] })).status, 404);
+  upstreamStatus = 200;
+  const anthropicDetails = { ...details, name: "My Anthropic", baseUrl: "https://anthropic.provider.test", apiFormat: "anthropic" };
+  response = await call("", "POST", { ...anthropicDetails, apiFormat: "unsupported" });
+  assert.equal(response.status, 400);
+  response = await call("", "POST", anthropicDetails);
+  assert.equal(response.status, 201);
+  const anthropic = (await response.json()).data;
+  assert.equal(anthropic.apiFormat, "anthropic");
+  assert.equal((await (await call("")).json()).data[0].apiFormat, "anthropic");
+  response = await call("/" + anthropic.id, "PUT", { ...withoutKey, baseUrl: anthropic.baseUrl });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).data.apiFormat, "anthropic");
+  for (const baseUrl of [anthropic.baseUrl, anthropic.baseUrl + "/v1"]) {
+    response = await call("/discover", "POST", { baseUrl, apiKey: "secret-key", apiFormat: "anthropic" });
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).models, ["second-model", "shared/model"]);
+    assert.equal(new URL(lastUpstream!.url).pathname, "/v1/models");
+    assert.equal(lastUpstream?.headers["x-api-key"], "secret-key");
+    assert.equal(lastUpstream?.headers["anthropic-version"], "2023-06-01");
+    assert.equal(lastUpstream?.key, undefined);
+  }
+  upstreamPages = [
+    { data: [{ id: "page-one" }], has_more: true, last_id: "page-one" },
+    { data: [{ id: "page-two" }], has_more: false },
+  ];
+  response = await call("/discover", "POST", { baseUrl: anthropic.baseUrl, providerId: anthropic.id });
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).models, ["page-one", "page-two"]);
+  assert.equal(new URL(lastUpstream!.url).searchParams.get("after_id"), "page-one");
+  upstreamPayload = { data: [{ id: "shared/model" }], has_more: true, last_id: "shared/model" };
+  response = await call("/discover", "POST", { baseUrl: anthropic.baseUrl, providerId: anthropic.id });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error.message, /model pages/);
+  assert.equal(new URL(lastUpstream!.url).searchParams.get("after_id"), "shared/model");
+  upstreamPayload = { data: [{ id: "shared/model" }], has_more: false };
+  for (const baseUrl of [anthropic.baseUrl, anthropic.baseUrl + "/v1"]) {
+    response = await call("/" + anthropic.id, "PUT", { ...anthropicDetails, baseUrl });
+    assert.equal(response.status, 200);
+    response = await call("/" + anthropic.id + "/chat", "POST", {
+      modelId: "shared/model", temperature: 1.8, maxTokens: 99999,
+      messages: [{ role: "system", content: "Be helpful" }, { role: "user", content: "Hi" }, { role: "assistant", content: "Hello" }, { role: "user", content: "Again" }],
+    });
+    const result = await response.text();
+    assert.match(result, /Hello from Anthropic/);
+    assert.match(result, /"done":true/);
+    assert.match(result, /"inputTokens":17/);
+    assert.match(result, /"outputTokens":9/);
+    assert.equal(lastUpstream?.url, anthropic.baseUrl + "/v1/messages");
+    assert.equal(lastUpstream?.headers["x-api-key"], "secret-key");
+    assert.equal(lastUpstream?.body.system, "Be helpful");
+    assert.deepEqual(lastUpstream?.body.messages.map((m: any) => m.role), ["user", "assistant", "user"]);
+    assert.equal(lastUpstream?.body.max_tokens, 8192);
+    assert.equal(lastUpstream?.body.temperature, 1);
+    assert.equal(usage.at(-1)?.[7], 0);
+  }
+  upstreamStatus = 401;
+  response = await call("/" + anthropic.id + "/chat", "POST", { modelId: "shared/model", messages: [{ role: "user", content: "Hi" }] });
+  const anthropicError = await response.text();
+  assert.match(anthropicError, /HTTP 401/);
+  assert.equal(anthropicError.includes("secret-key"), false);
+  assert.equal(anthropicError.includes('"done":true'), false);
+  assert.equal((await call("/" + anthropic.id, "DELETE")).status, 204);
   assert.equal(pinnedLookups, upstreamCalls);
-  console.log("PASS: URL and IP restrictions, bounded model discovery, encryption, authenticated CRUD, tenant isolation, key preservation, DNS pinning, redirect blocking, model routing, streaming and provider errors.");
+  console.log("PASS: URL and IP restrictions, bounded model discovery, encryption, authenticated CRUD, tenant isolation, key preservation, DNS pinning, redirect blocking, OpenAI and Anthropic routing, headers, system messages, streaming usage, versioned URLs, pagination guards and provider errors.");
 } finally {
   dns.promises.lookup = originalLookup;
   https.request = originalRequest;

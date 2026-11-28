@@ -4,6 +4,7 @@ export interface CustomProvider {
   id: string;
   name: string;
   baseUrl: string;
+  apiFormat: "openai" | "anthropic";
   models: string[];
 }
 

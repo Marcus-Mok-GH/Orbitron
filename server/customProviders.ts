@@ -1,9 +1,10 @@
 import type { Express, Request, Response } from "express";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { query } from "./db";
 import { requireAuth, requireApiKey } from "./auth";
-import { normalizeProviderUrl, providerFetch, readModelIds } from "./providerNetwork";
+import { normalizeProviderUrl, providerFetch, readModelIds, readModelPage } from "./providerNetwork";
 import { recordUsage } from "./usage";
 
 interface ProviderRow {
@@ -13,6 +14,7 @@ interface ProviderRow {
   base_url: string;
   encrypted_key: string;
   models: string[];
+  api_format: "openai" | "anthropic";
 }
 
 export function encryptProviderKey(secret: string, userId: string): string {
@@ -34,7 +36,17 @@ export function decryptProviderKey(value: string, userId: string): string {
 }
 
 function publicProvider(row: ProviderRow) {
-  return { id: row.id, name: row.name, baseUrl: row.base_url, models: row.models };
+  return { id: row.id, name: row.name, baseUrl: row.base_url, apiFormat: row.api_format || "openai", models: row.models };
+}
+
+function readApiFormat(value: unknown): ProviderRow["api_format"] {
+  if (value === undefined) return "openai";
+  if (value !== "openai" && value !== "anthropic") throw new Error("Choose OpenAI or Anthropic API format.");
+  return value;
+}
+
+function anthropicBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/v1$/, "");
 }
 
 function validId(value: unknown): value is string {
@@ -71,7 +83,7 @@ function fail(res: Response, message: string, status = 400) {
 export function registerCustomProviderRoutes(app: Express) {
   app.get("/api/custom-providers", requireAuth, async (req, res) => {
     const result = await query<ProviderRow>(
-      "SELECT id, name, base_url, models FROM custom_providers WHERE user_id = $1 ORDER BY created_at", [req.auth!.user.id],
+      "SELECT id, name, base_url, models, api_format FROM custom_providers WHERE user_id = $1 ORDER BY created_at", [req.auth!.user.id],
     );
     res.json({ data: result.rows.map(publicProvider) });
   });
@@ -83,13 +95,35 @@ export function registerCustomProviderRoutes(app: Express) {
       const existing = body.providerId ? await ownedProvider(body.providerId, userId) : undefined;
       if (body.providerId && !existing) return fail(res, "Provider not found.", 404);
       const baseUrl = normalizeProviderUrl(body.baseUrl);
+      const apiFormat = readApiFormat(body.apiFormat ?? existing?.api_format);
       if (!body.apiKey && existing && baseUrl !== existing.base_url) {
         return fail(res, "Re-enter the API key when changing the base URL.");
       }
       const apiKey = body.apiKey ? readKey(body.apiKey) : existing ? decryptProviderKey(existing.encrypted_key, userId) : readKey(undefined);
+      const signal = AbortSignal.timeout(20_000);
+      if (apiFormat === "anthropic") {
+        const models = new Set<string>();
+        const cursors = new Set<string>();
+        let after: string | undefined;
+        for (let page = 0; page < 1000; page++) {
+          const url = new URL(anthropicBaseUrl(baseUrl) + "/v1/models");
+          url.searchParams.set("limit", "1000");
+          if (after) url.searchParams.set("after_id", after);
+          const response = await providerFetch(url, {
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", Accept: "application/json" }, signal,
+          });
+          const result = await readModelPage(response);
+          result.models.forEach((id) => models.add(id));
+          if (models.size > 1000) throw new Error("More than 1,000 models were returned. Enter a model manually.");
+          if (!result.hasMore) return res.json({ models: [...models].sort() });
+          if (!result.lastId || cursors.has(result.lastId)) throw new Error("Could not fetch all model pages. Enter a model manually.");
+          cursors.add(result.lastId);
+          after = result.lastId;
+        }
+        throw new Error("Too many model pages. Enter a model manually.");
+      }
       const response = await providerFetch(baseUrl + "/models", {
-        headers: { Authorization: "Bearer " + apiKey, Accept: "application/json" },
-        signal: AbortSignal.timeout(20_000),
+        headers: { Authorization: "Bearer " + apiKey, Accept: "application/json" }, signal,
       });
       res.json({ models: await readModelIds(response) });
     } catch (error) {
@@ -102,11 +136,13 @@ export function registerCustomProviderRoutes(app: Express) {
     const body = req.body || {};
     const existing = req.params.id ? await ownedProvider(req.params.id, userId) : undefined;
     if (req.params.id && !existing) return fail(res, "Provider not found.", 404);
+    let apiFormat: ProviderRow["api_format"];
     let name: string, baseUrl: string, models: string[], encryptedKey: string;
     try {
       if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 100) {
         throw new Error("Enter a provider name (up to 100 characters).");
       }
+      apiFormat = readApiFormat(body.apiFormat ?? existing?.api_format);
       name = body.name.trim();
       baseUrl = normalizeProviderUrl(body.baseUrl);
       models = readModels(body.models);
@@ -125,12 +161,12 @@ export function registerCustomProviderRoutes(app: Express) {
     }
     const result = existing
       ? await query<ProviderRow>(
-          "UPDATE custom_providers SET name = $1, base_url = $2, encrypted_key = $3, models = $4::jsonb WHERE id = $5 AND user_id = $6 RETURNING *",
-          [name, baseUrl, encryptedKey, JSON.stringify(models), existing.id, userId],
+          "UPDATE custom_providers SET name = $1, base_url = $2, encrypted_key = $3, models = $4::jsonb, api_format = $5 WHERE id = $6 AND user_id = $7 RETURNING *",
+          [name, baseUrl, encryptedKey, JSON.stringify(models), apiFormat, existing.id, userId],
         )
       : await query<ProviderRow>(
-          "INSERT INTO custom_providers (user_id, name, base_url, encrypted_key, models) VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING *",
-          [userId, name, baseUrl, encryptedKey, JSON.stringify(models)],
+          "INSERT INTO custom_providers (user_id, name, base_url, encrypted_key, models, api_format) VALUES ($1, $2, $3, $4, $5::jsonb, $6) RETURNING *",
+          [userId, name, baseUrl, encryptedKey, JSON.stringify(models), apiFormat],
         );
     res.status(existing ? 200 : 201).json({ data: publicProvider(result.rows[0]) });
   };
@@ -165,31 +201,61 @@ export function registerCustomProviderRoutes(app: Express) {
     const started = Date.now();
     let firstToken = 0, inputTokens = 0, outputTokens = 0, text = "", success = false;
     try {
-      const client = new OpenAI({
-        apiKey: decryptProviderKey(provider.encrypted_key, userId),
-        baseURL: provider.base_url,
-        fetch: providerFetch,
-        maxRetries: 0,
-        timeout: 60_000,
-      });
-      const stream = await client.chat.completions.create({
-        model: modelId,
-        messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
-        stream: true,
-        max_tokens: Math.max(1, Math.min(8192, Number.isFinite(maxTokens) ? Math.floor(maxTokens) : 4096)),
-        ...(typeof temperature === "number" && Number.isFinite(temperature)
-          ? { temperature: Math.max(0, Math.min(2, temperature)) } : {}),
-      }, { signal: controller.signal });
-      for await (const chunk of stream) {
-        if (chunk.usage) {
-          inputTokens = chunk.usage.prompt_tokens;
-          outputTokens = chunk.usage.completion_tokens;
+      const apiKey = decryptProviderKey(provider.encrypted_key, userId);
+      const max_tokens = Math.max(1, Math.min(8192, Number.isFinite(maxTokens) ? Math.floor(maxTokens) : 4096));
+      const emitText = (delta: string) => {
+        if (!firstToken) firstToken = Date.now() - started;
+        text += delta;
+        send({ delta });
+      };
+      if (provider.api_format === "anthropic") {
+        const conversation = messages.filter((m: any) => m.role !== "system");
+        if (!conversation.length) throw new Error("Provide a user or assistant message.");
+        const client = new Anthropic({ apiKey, authToken: null, baseURL: anthropicBaseUrl(provider.base_url), fetch: providerFetch, maxRetries: 0, timeout: 60_000 });
+        const stream = await client.messages.create({
+          model: modelId,
+          messages: conversation.map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content })),
+          system: messages.filter((m: any) => m.role === "system").map((m: any) => m.content).join("\n\n") || undefined,
+          max_tokens,
+          stream: true,
+          ...(typeof temperature === "number" && Number.isFinite(temperature)
+            ? { temperature: Math.max(0, Math.min(1, temperature)) } : {}),
+        }, { signal: controller.signal });
+        for await (const event of stream) {
+          if (event.type === "message_start") {
+            inputTokens = event.message.usage.input_tokens;
+            outputTokens = event.message.usage.output_tokens;
+          } else if (event.type === "message_delta") {
+            outputTokens = event.usage.output_tokens;
+          } else if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+            emitText(event.delta.text);
+          }
         }
-        const delta = chunk.choices[0]?.delta?.content;
-        if (delta) {
-          if (!firstToken) firstToken = Date.now() - started;
-          text += delta;
-          send({ delta });
+      } else {
+        const client = new OpenAI({
+          apiKey,
+          baseURL: provider.base_url,
+          fetch: providerFetch,
+          maxRetries: 0,
+          timeout: 60_000,
+        });
+        const stream = await client.chat.completions.create({
+          model: modelId,
+          messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+          stream: true,
+          max_tokens,
+          ...(typeof temperature === "number" && Number.isFinite(temperature)
+            ? { temperature: Math.max(0, Math.min(2, temperature)) } : {}),
+        }, { signal: controller.signal });
+        for await (const chunk of stream) {
+          if (chunk.usage) {
+            inputTokens = chunk.usage.prompt_tokens;
+            outputTokens = chunk.usage.completion_tokens;
+          }
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            emitText(delta);
+          }
         }
       }
       success = true;
@@ -198,7 +264,7 @@ export function registerCustomProviderRoutes(app: Express) {
       send({ done: true, cost: 0, inputTokens, outputTokens, latencyMs: firstToken, totalMs: Date.now() - started });
     } catch (error) {
       if (!controller.signal.aborted) {
-        const status = error instanceof OpenAI.APIError ? error.status : undefined;
+        const status = (error instanceof OpenAI.APIError || error instanceof Anthropic.APIError) ? error.status : undefined;
         send({ error: status
           ? `Provider request failed (HTTP ${status}). Check the API key, model and base URL in Settings.`
           : "Could not reach the custom provider. Check its base URL and try again." });

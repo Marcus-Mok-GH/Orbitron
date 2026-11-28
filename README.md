@@ -120,14 +120,19 @@ Then open the local URL shown in your terminal.
 ## Custom providers
 
 In **Settings → Bring Your Own Key**, add a provider name, a public HTTPS API
-base URL (including `/v1` if the provider requires it), and its API key.
-Enter exact model IDs, one per line, or choose **Fetch all models** to retrieve
-the provider's OpenAI-compatible `GET /models` list and select models to save.
-Providers without that endpoint support manual entry.
+base URL and API key, then choose **OpenAI compatible** or **Anthropic compatible**.
+Enter exact model IDs, one per line, or choose **Fetch all models** and select
+models to save. Providers without a model-list endpoint support manual entry.
+
+OpenAI-compatible providers use `GET /models` and `POST /chat/completions`,
+relative to the base URL (include `/v1` when required), with bearer authentication.
+Anthropic-compatible providers use `GET /v1/models` and `POST /v1/messages`,
+with `x-api-key` and `anthropic-version` headers. Their base URL may include
+or omit a trailing `/v1`. Model fetching follows Anthropic pagination, up to
+1,000 models. Existing providers retain the OpenAI format by default.
 
 Saved models appear in the chat model picker, grouped by the provider name.
-Chat requests use the saved provider's `POST /chat/completions` endpoint and
-API key. These requests are billed by the provider and do not consume
+Chat requests use the saved provider's selected API format and API key. These requests are billed by the provider and do not consume
 Orbitron credits. Orbitron web search is unavailable for custom models.
 The existing catalog and its credit accounting are unchanged.
 

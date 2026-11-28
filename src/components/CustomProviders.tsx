@@ -10,6 +10,7 @@ export function CustomProviders() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [apiFormat, setApiFormat] = useState<CustomProvider["apiFormat"]>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [modelText, setModelText] = useState("");
@@ -36,6 +37,7 @@ export function CustomProviders() {
     setEditingId(null);
     setName("");
     setBaseUrl("");
+    setApiFormat("openai");
     setApiKey("");
     setModelText("");
     setMode("manual");
@@ -56,6 +58,7 @@ export function CustomProviders() {
     setEditingId(provider.id);
     setName(provider.name);
     setBaseUrl(provider.baseUrl);
+    setApiFormat(provider.apiFormat || "openai");
     setModelText(provider.models.join("\n"));
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -68,7 +71,7 @@ export function CustomProviders() {
     try {
       const body = await providerRequest<{ models: string[] }>("/api/custom-providers/discover", {
         method: "POST",
-        body: JSON.stringify({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || undefined, providerId: editingId }),
+        body: JSON.stringify({ apiFormat, baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || undefined, providerId: editingId }),
       });
       if (currentRevision !== revision.current) return;
       setFetchedModels(body.models);
@@ -94,7 +97,7 @@ export function CustomProviders() {
       const result = await providerRequest<{ data: CustomProvider }>(
         "/api/custom-providers" + (editingId ? "/" + editingId : ""), {
           method: editingId ? "PUT" : "POST",
-          body: JSON.stringify({ name: name.trim(), baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || undefined, models }),
+          body: JSON.stringify({ apiFormat, name: name.trim(), baseUrl: baseUrl.trim(), apiKey: apiKey.trim() || undefined, models }),
         },
       );
       setProviders((prev) => editingId
@@ -131,7 +134,7 @@ export function CustomProviders() {
       <div>
         <h3 id="custom-provider-heading" className="text-lg font-bold">Custom providers</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Connect an OpenAI-compatible provider. Your key is stored encrypted on the server.
+          Connect an OpenAI-compatible or Anthropic-compatible provider. Your key is stored encrypted on the server.
           Requests use your provider account; the provider bills you directly.
         </p>
       </div>
@@ -140,6 +143,13 @@ export function CustomProviders() {
       <form ref={formRef} onSubmit={(event) => void save(event)} className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-3 sm:p-4">
         <h4 className="font-medium">{editingId ? "Edit custom provider" : "Add custom provider"}</h4>
         <fieldset disabled={!!busy || loading} className="min-w-0 space-y-4">
+          <label className="block space-y-1.5 text-sm font-medium">
+            <span>API format</span>
+            <select value={apiFormat} onChange={(e) => { setApiFormat(e.target.value as CustomProvider["apiFormat"]); invalidateModels(); }} className={inputClass}>
+              <option value="openai">OpenAI compatible</option>
+              <option value="anthropic">Anthropic compatible</option>
+            </select>
+          </label>
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <label className="min-w-0 space-y-1.5 text-sm font-medium">
               <span>Provider name</span>
@@ -147,10 +157,10 @@ export function CustomProviders() {
             </label>
             <label className="min-w-0 space-y-1.5 text-sm font-medium">
               <span>Base URL</span>
-              <input required type="url" value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); invalidateModels(); }} placeholder="https://api.example.com/v1" className={inputClass} />
+              <input required type="url" value={baseUrl} onChange={(e) => { setBaseUrl(e.target.value); invalidateModels(); }} placeholder={apiFormat === "anthropic" ? "https://api.anthropic.com" : "https://api.example.com/v1"} className={inputClass} />
             </label>
           </div>
-          <p className="text-xs text-muted-foreground">Use the public HTTPS API base URL, including /v1 if required. Orbitron appends /models or /chat/completions.</p>
+          <p className="text-xs text-muted-foreground">{apiFormat === "anthropic" ? "Use the public HTTPS API base URL, with or without /v1. Orbitron uses /v1/models and /v1/messages." : "Use the public HTTPS API base URL, including /v1 if required. Orbitron appends /models or /chat/completions."}</p>
           <label className="block space-y-1.5 text-sm font-medium">
             <span>API key{editingId ? " (leave blank to keep saved key)" : ""}</span>
             <input required={!editingId} type="password" autoComplete="new-password" maxLength={8192} value={apiKey} onChange={(e) => { setApiKey(e.target.value); invalidateModels(); }} placeholder={editingId ? "Saved key is hidden" : "Enter provider API key"} className={inputClass} />
@@ -205,7 +215,7 @@ export function CustomProviders() {
           <div className="min-w-0">
             <h4 className="break-words font-medium">{provider.name}</h4>
             <p className="break-all text-xs text-muted-foreground">{provider.baseUrl}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{provider.models.length} model{provider.models.length === 1 ? "" : "s"} · API key saved</p>
+            <p className="mt-1 text-xs text-muted-foreground">{provider.apiFormat === "anthropic" ? "Anthropic compatible" : "OpenAI compatible"} · {provider.models.length} model{provider.models.length === 1 ? "" : "s"} · API key saved</p>
           </div>
           <div className="flex shrink-0 gap-2">
             <button type="button" disabled={!!busy} onClick={() => edit(provider)} aria-label={"Edit " + provider.name} className={buttonClass}><Pencil className="h-4 w-4" />Edit</button>

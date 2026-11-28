@@ -85,6 +85,7 @@ export async function ensureSchema(): Promise<void> {
       models JSONB NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE custom_providers ADD COLUMN IF NOT EXISTS api_format TEXT NOT NULL DEFAULT 'openai';
     CREATE INDEX IF NOT EXISTS custom_providers_user_idx ON custom_providers(user_id);
 
     CREATE TABLE IF NOT EXISTS api_keys (

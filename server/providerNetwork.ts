@@ -45,7 +45,10 @@ export function normalizeProviderUrl(value: unknown): string {
 
 export const providerFetch: typeof fetch = async (input, init) => {
   const req = new Request(input, init);
-  const url = new URL(normalizeProviderUrl(req.url));
+  const url = new URL(req.url);
+  const base = new URL(url);
+  base.search = "";
+  normalizeProviderUrl(base.toString());
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   const addresses = isIP(hostname)
     ? [{ address: hostname, family: isIP(hostname) }]
@@ -88,7 +91,7 @@ export const providerFetch: typeof fetch = async (input, init) => {
   });
 };
 
-export async function readModelIds(response: Response): Promise<string[]> {
+export async function readModelPage(response: Response): Promise<{ models: string[]; hasMore: boolean; lastId?: string }> {
   if (!response.ok) {
     await response.body?.cancel();
     throw new Error(`Could not fetch models (provider returned HTTP ${response.status}). Check the base URL and API key, or enter a model manually.`);
@@ -110,13 +113,18 @@ export async function readModelIds(response: Response): Promise<string[]> {
   }
   let body: any;
   try { body = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
-  catch { throw new Error("The provider did not return an OpenAI-compatible model list."); }
-  if (!Array.isArray(body?.data)) throw new Error("The provider did not return an OpenAI-compatible model list.");
-  if (body.has_more) throw new Error("This provider paginates its models. Enter a model manually.");
+  catch { throw new Error("The provider did not return a compatible model list."); }
+  if (!Array.isArray(body?.data)) throw new Error("The provider did not return a compatible model list.");
   const models = [...new Set<string>(body.data
     .filter((m: any) => typeof m?.id === "string" && m.id.trim() && m.id.length <= 200)
     .map((m: any) => m.id.trim()))].sort();
   if (!models.length) throw new Error("No models were returned. Enter a model manually.");
   if (models.length > 1000) throw new Error("More than 1,000 models were returned. Enter a model manually.");
-  return models;
+  return { models, hasMore: body.has_more === true, lastId: typeof body.last_id === "string" ? body.last_id : undefined };
+}
+
+export async function readModelIds(response: Response): Promise<string[]> {
+  const page = await readModelPage(response);
+  if (page.hasMore) throw new Error("This provider paginates its models. Enter a model manually.");
+  return page.models;
 }
