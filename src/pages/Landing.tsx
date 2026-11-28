@@ -7,7 +7,6 @@ import { questModels, type Model } from "../data/models";
 
 /** A spread of labs and price tiers for the homepage index. */
 const FEATURED_MODEL_IDS = [
-  "openai/gpt-6-astra",
   "openai/gpt-5.4-nano",
   "moonshotai/kimi-k3.1-pro",
   "x-ai/grok-4.6",
